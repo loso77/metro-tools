@@ -72,15 +72,9 @@ function draw(){
   ctx.lineWidth=Math.max(2,3*scale);ctx.strokeStyle='rgba(255,255,255,.92)';ctx.strokeText(tableLabel,labelAt.x,labelAt.y);
   ctx.fillStyle='#b91c1c';ctx.fillText(tableLabel,labelAt.x,labelAt.y);ctx.restore();
 
-  state.quad.forEach((point,index)=>{
+  state.quad.forEach(point=>{
     const radius=Math.max(5,7*scale);
     ctx.beginPath();ctx.arc(point.x,point.y,radius,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();ctx.lineWidth=Math.max(2,2.2*scale);ctx.strokeStyle='#ef4444';ctx.stroke();
-    if(index===0||index===3){
-      const text=index===0?'31':'61';
-      ctx.font=`800 ${Math.max(9,10*scale)}px -apple-system, sans-serif`;ctx.textAlign='left';ctx.textBaseline=index===0?'bottom':'top';
-      ctx.lineWidth=Math.max(2,2.5*scale);ctx.strokeStyle='#fff';ctx.strokeText(text,point.x+radius,point.y+(index===0?-radius:radius));
-      ctx.fillStyle='#991b1b';ctx.fillText(text,point.x+radius,point.y+(index===0?-radius:radius));
-    }
   });
   renderRowCrop();
 }
