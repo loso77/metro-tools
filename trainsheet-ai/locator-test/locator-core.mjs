@@ -367,6 +367,11 @@ export function detectTargetGridFromGray(gray,width,height){
   let top=horizontalGrid.start,bottom=horizontalGrid.bottom,bottomExtension=0,topCorrection=0;
   if(anchoredGrid){
     top=anchoredGrid.top;bottom=anchoredGrid.bottom;
+    if(extent&&anchoredGrid.extentDistance>.8){
+      const sortedPeaks=bestHorizontal.peaks.filter(item=>item.strength>0).sort((a,b)=>a.position-b.position);
+      const nextBottom=nearestPeak(sortedPeaks,bottom+anchoredGrid.step,anchoredGrid.step*.42);
+      if(nextBottom&&Math.abs(nextBottom.position-extent.end)<Math.abs(bottom-extent.end))bottom=nextBottom.position;
+    }
     if(Math.abs(bestVertical.slope)>.045){
       const sortedPeaks=bestHorizontal.peaks.filter(item=>item.strength>0).sort((a,b)=>a.position-b.position);
       const perspectiveTop=nearestPeak(sortedPeaks,top-anchoredGrid.step*.75,anchoredGrid.step*.32);
