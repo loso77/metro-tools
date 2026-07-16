@@ -222,14 +222,14 @@ function strongestPeakNear(sorted,target,tolerance,strongest){
   return best;
 }
 
-function selectBottomAnchoredGrid(peaks,height,extent,headerStart,referenceStep){
+function selectBottomAnchoredGrid(peaks,height,extent,headerStart,referenceStep,minHeaderRows=.8){
   if(!extent||!Number.isFinite(headerStart))return null;
   const sorted=peaks.filter(p=>p.strength>0).sort((a,b)=>a.position-b.position);
   const strongest=Math.max(1,...sorted.map(item=>item.strength));
   const bottoms=sorted.filter(item=>item.position>=extent.end-referenceStep*1.35&&item.position<=Math.min(height*.99,extent.end+referenceStep*.75));
   let best=null,ranked=[];
   for(const bottomPeak of bottoms){
-    for(let headerRows=.8;headerRows<=2.41;headerRows+=.1){
+    for(let headerRows=minHeaderRows;headerRows<=2.41;headerRows+=.1){
       const step=(bottomPeak.position-headerStart)/(31+headerRows);
       if(step<Math.max(12,referenceStep*.66)||step>Math.min(52,referenceStep*1.04))continue;
       const tolerance=Math.max(3,step*.24),matches=[];let strength=0;
@@ -363,7 +363,11 @@ export function detectTargetGridFromGray(gray,width,height){
     end:largestEnd-secondLargestEnd<=height*.035?largestEnd:secondLargestEnd
   }:null;
   const headerStart=extentStarts[Math.min(1,extentStarts.length-1)];
-  const anchoredGrid=selectBottomAnchoredGrid(bestHorizontal.peaks,height,extent,headerStart,horizontalGrid.step);
+  let anchoredGrid=selectBottomAnchoredGrid(bestHorizontal.peaks,height,extent,headerStart,horizontalGrid.step);
+  if(!usedBroadGrid&&anchoredGrid&&anchoredGrid.matches<=30&&anchoredGrid.headerRows<1.2){
+    const belowHeader=selectBottomAnchoredGrid(bestHorizontal.peaks,height,extent,headerStart,horizontalGrid.step,1.7);
+    if(belowHeader&&belowHeader.matches>=anchoredGrid.matches-1&&belowHeader.extentDistance<.75)anchoredGrid=belowHeader;
+  }
   let top=horizontalGrid.start,bottom=horizontalGrid.bottom,bottomExtension=0,topCorrection=0;
   if(anchoredGrid){
     top=anchoredGrid.top;bottom=anchoredGrid.bottom;
@@ -397,7 +401,7 @@ export function detectTargetGridFromGray(gray,width,height){
       top=horizontalGrid.start;bottom=horizontalGrid.bottom;bottomExtension=0;topCorrection=0;
     }
   }
-  if(usedBroadGrid&&top<height*.12){top=0;topCorrection=top-horizontalGrid.start}
+  if(usedBroadGrid){top=0;topCorrection=top-horizontalGrid.start}
   if(usedBroadGrid&&bottom>height*.94){bottom=height-1;bottomExtension=bottom-horizontalGrid.bottom}
   const rowStops=snapRowStops(bestHorizontal.peaks,top,bottom);
   const gridWidth=right-left;
