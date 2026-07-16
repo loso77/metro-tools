@@ -6,17 +6,20 @@ const E={
   autoBtn:$('autoBtn'),defaultBtn:$('defaultBtn'),resetBtn:$('resetBtn'),stage:$('stage'),photoCanvas:$('photoCanvas'),
   cropCanvas:$('cropCanvas'),cropDivider:$('cropDivider'),rowTitle:$('rowTitle'),rowHint:$('rowHint'),
   previousRow:$('previousRow'),nextRow:$('nextRow'),carStart:$('carStart'),trackStart:$('trackStart'),
-  carStartValue:$('carStartValue'),trackStartValue:$('trackStartValue')
+  carStartValue:$('carStartValue'),trackStartValue:$('trackStartValue'),topUp:$('topUp'),topDown:$('topDown'),
+  bottomUp:$('bottomUp'),bottomDown:$('bottomDown')
 };
 
 const state={
-  image:null,sourcePixels:null,width:0,height:0,quad:null,lastAutoQuad:null,selectedRow:0,
+  image:null,sourcePixels:null,width:0,height:0,quad:null,lastAutoQuad:null,rowStops:null,lastAutoRowStops:null,lastAutoColumns:null,selectedRow:0,
   carStart:.30,trackStart:.64,dragCorner:-1,dragMoved:false,pointerStart:null,fileName:''
 };
 const ctx=E.photoCanvas.getContext('2d',{willReadFrequently:true});
 const cropCtx=E.cropCanvas.getContext('2d');
 
 function cloneQuad(quad){return quad.map(p=>({...p}))}
+function equalRowStops(){return Array.from({length:32},(_,index)=>index/31)}
+function rowStop(index){return state.rowStops?.[index]??index/31}
 function setStatus(message){E.status.textContent=message}
 function confidenceLabel(value,debug={}){
   E.confidence.className='confidence';
@@ -35,7 +38,7 @@ function drawPolygon(context,points,fill,stroke,lineWidth=2){
 }
 
 function rowCell(row,u0,u1){
-  const v0=row/31,v1=(row+1)/31;
+  const v0=rowStop(row),v1=rowStop(row+1);
   return [quadPoint(state.quad,u0,v0),quadPoint(state.quad,u1,v0),quadPoint(state.quad,u1,v1),quadPoint(state.quad,u0,v1)];
 }
 
@@ -54,7 +57,7 @@ function draw(){
 
   ctx.lineWidth=Math.max(1,1.1*scale);
   for(let row=0;row<=31;row++){
-    const a=quadPoint(state.quad,0,row/31),b=quadPoint(state.quad,1,row/31);
+    const a=quadPoint(state.quad,0,rowStop(row)),b=quadPoint(state.quad,1,rowStop(row));
     ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);
     ctx.strokeStyle=row===state.selectedRow||row===state.selectedRow+1?'rgba(239,68,68,.95)':'rgba(15,118,110,.48)';ctx.stroke();
   }
@@ -64,17 +67,20 @@ function draw(){
   }
 
   const tableLabel=String(31+state.selectedRow);
-  const labelAt=quadPoint(state.quad,.08,(state.selectedRow+.55)/31);
-  ctx.save();ctx.font=`800 ${Math.max(14,17*scale)}px -apple-system, sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';
-  ctx.lineWidth=Math.max(3,4*scale);ctx.strokeStyle='rgba(255,255,255,.92)';ctx.strokeText(tableLabel,labelAt.x,labelAt.y);
+  const labelAt=quadPoint(state.quad,.08,(rowStop(state.selectedRow)+rowStop(state.selectedRow+1))/2);
+  ctx.save();ctx.font=`800 ${Math.max(12,14*scale)}px -apple-system, sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.lineWidth=Math.max(2,3*scale);ctx.strokeStyle='rgba(255,255,255,.92)';ctx.strokeText(tableLabel,labelAt.x,labelAt.y);
   ctx.fillStyle='#b91c1c';ctx.fillText(tableLabel,labelAt.x,labelAt.y);ctx.restore();
 
-  const cornerNames=['31左上','31右上','61右下','61左下'];
   state.quad.forEach((point,index)=>{
-    const radius=Math.max(8,10*scale);
-    ctx.beginPath();ctx.arc(point.x,point.y,radius,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();ctx.lineWidth=Math.max(3,3*scale);ctx.strokeStyle='#ef4444';ctx.stroke();
-    ctx.font=`700 ${Math.max(11,12*scale)}px -apple-system, sans-serif`;ctx.fillStyle='#991b1b';ctx.textAlign=index===0||index===3?'left':'right';ctx.textBaseline=index<2?'bottom':'top';
-    ctx.fillText(cornerNames[index],point.x+(index===0||index===3?radius:-radius),point.y+(index<2?-radius:radius));
+    const radius=Math.max(5,7*scale);
+    ctx.beginPath();ctx.arc(point.x,point.y,radius,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();ctx.lineWidth=Math.max(2,2.2*scale);ctx.strokeStyle='#ef4444';ctx.stroke();
+    if(index===0||index===3){
+      const text=index===0?'31':'61';
+      ctx.font=`800 ${Math.max(9,10*scale)}px -apple-system, sans-serif`;ctx.textAlign='left';ctx.textBaseline=index===0?'bottom':'top';
+      ctx.lineWidth=Math.max(2,2.5*scale);ctx.strokeStyle='#fff';ctx.strokeText(text,point.x+radius,point.y+(index===0?-radius:radius));
+      ctx.fillStyle='#991b1b';ctx.fillText(text,point.x+radius,point.y+(index===0?-radius:radius));
+    }
   });
   renderRowCrop();
 }
@@ -90,7 +96,7 @@ function renderRowCrop(){
   E.cropCanvas.width=outputWidth;E.cropCanvas.height=outputHeight;
   const output=cropCtx.createImageData(outputWidth,outputHeight),source=state.sourcePixels.data;
   for(let y=0;y<outputHeight;y++){
-    const v=(row+(y+.5)/outputHeight)/31;
+    const rowRatio=(y+.5)/outputHeight,v=rowStop(row)+(rowStop(row+1)-rowStop(row))*rowRatio;
     for(let x=0;x<outputWidth;x++){
       const u=state.carStart+(1-state.carStart)*(x+.5)/outputWidth;
       const point=quadPoint(state.quad,u,v),pixel=samplePixel(source,state.width,state.height,point.x,point.y),i=(y*outputWidth+x)*4;
@@ -155,12 +161,19 @@ async function autoLocate(){
     const result=detectTargetGrid(detectorCtx.getImageData(0,0,detectWidth,detectHeight));
     const sx=state.width/detectWidth,sy=state.height/detectHeight;
     state.quad=result.points.map(p=>({x:p.x*sx,y:p.y*sy}));state.lastAutoQuad=cloneQuad(state.quad);
+    state.rowStops=result.rowStops?.length===32?[...result.rowStops]:equalRowStops();state.lastAutoRowStops=[...state.rowStops];
+    if(result.columns){
+      state.carStart=result.columns.carStart;state.trackStart=result.columns.trackStart;
+      state.lastAutoColumns={carStart:state.carStart,trackStart:state.trackStart};
+      E.carStart.value=Math.round(state.carStart*100);E.trackStart.value=Math.round(state.trackStart*100);
+      E.carStartValue.textContent=`${Math.round(state.carStart*100)}%`;E.trackStartValue.textContent=`${Math.round(state.trackStart*100)}%`;
+    }
     confidenceLabel(result.confidence,result.debug);
     if(result.confidence>=.78)setStatus('自动定位完成。请点击几行抽查，确认框线落在正确单元格。');
     else setStatus(`自动定位仅作初始参考：${result.debug.reason||'请拖动四角修正'}。`);
     draw();
   }catch(error){
-    state.quad=fallbackQuad(state.width,state.height);state.lastAutoQuad=cloneQuad(state.quad);confidenceLabel(0);
+    state.quad=fallbackQuad(state.width,state.height);state.rowStops=equalRowStops();state.lastAutoQuad=cloneQuad(state.quad);state.lastAutoRowStops=[...state.rowStops];confidenceLabel(0);
     setStatus('自动定位失败，已显示默认框；请拖动四角修正。'+(error?.message||''));draw();
   }finally{E.autoBtn.disabled=false}
 }
@@ -182,8 +195,8 @@ async function loadFile(file){
 
 E.imageInput.addEventListener('change',()=>loadFile(E.imageInput.files?.[0]));
 E.autoBtn.addEventListener('click',autoLocate);
-E.defaultBtn.addEventListener('click',()=>{if(!state.image)return;state.quad=fallbackQuad(state.width,state.height);confidenceLabel(0);setStatus('已使用默认框，请拖动四角到31行顶部和61行底部。');draw()});
-E.resetBtn.addEventListener('click',()=>{if(!state.lastAutoQuad)return;state.quad=cloneQuad(state.lastAutoQuad);setStatus('已恢复最近一次自动定位结果。');draw()});
+E.defaultBtn.addEventListener('click',()=>{if(!state.image)return;state.quad=fallbackQuad(state.width,state.height);state.rowStops=equalRowStops();confidenceLabel(0);setStatus('已使用默认框，请拖动四角到31行顶部和61行底部。');draw()});
+E.resetBtn.addEventListener('click',()=>{if(!state.lastAutoQuad)return;state.quad=cloneQuad(state.lastAutoQuad);state.rowStops=state.lastAutoRowStops?[...state.lastAutoRowStops]:equalRowStops();if(state.lastAutoColumns){state.carStart=state.lastAutoColumns.carStart;state.trackStart=state.lastAutoColumns.trackStart;E.carStart.value=Math.round(state.carStart*100);E.trackStart.value=Math.round(state.trackStart*100);E.carStartValue.textContent=`${Math.round(state.carStart*100)}%`;E.trackStartValue.textContent=`${Math.round(state.trackStart*100)}%`;}setStatus('已恢复最近一次自动定位结果。');draw()});
 E.previousRow.addEventListener('click',()=>{state.selectedRow=Math.max(0,state.selectedRow-1);draw()});
 E.nextRow.addEventListener('click',()=>{state.selectedRow=Math.min(30,state.selectedRow+1);draw()});
 
@@ -193,3 +206,20 @@ function updateColumns(){
   E.carStartValue.textContent=`${Math.round(state.carStart*100)}%`;E.trackStartValue.textContent=`${Math.round(state.trackStart*100)}%`;draw();
 }
 E.carStart.addEventListener('input',updateColumns);E.trackStart.addEventListener('input',updateColumns);
+
+function nudgeEdge(edge,direction){
+  if(!state.quad)return;
+  const [leftTop,rightTop,rightBottom,leftBottom]=state.quad.map(point=>({...point}));
+  if(edge==='top'){
+    state.quad[0].x+=(leftBottom.x-leftTop.x)/31*direction;state.quad[0].y+=(leftBottom.y-leftTop.y)/31*direction;
+    state.quad[1].x+=(rightBottom.x-rightTop.x)/31*direction;state.quad[1].y+=(rightBottom.y-rightTop.y)/31*direction;
+  }else{
+    state.quad[3].x+=(leftBottom.x-leftTop.x)/31*direction;state.quad[3].y+=(leftBottom.y-leftTop.y)/31*direction;
+    state.quad[2].x+=(rightBottom.x-rightTop.x)/31*direction;state.quad[2].y+=(rightBottom.y-rightTop.y)/31*direction;
+  }
+  setStatus(`${edge==='top'?'31上边':'61下边'}已${direction>0?'下移':'上移'}一行。`);draw();
+}
+E.topUp.addEventListener('click',()=>nudgeEdge('top',-1));
+E.topDown.addEventListener('click',()=>nudgeEdge('top',1));
+E.bottomUp.addEventListener('click',()=>nudgeEdge('bottom',-1));
+E.bottomDown.addEventListener('click',()=>nudgeEdge('bottom',1));

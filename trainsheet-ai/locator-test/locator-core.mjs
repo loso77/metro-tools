@@ -115,6 +115,31 @@ function horizontalProjection(points,width,height,slope,left,right,verticalSlope
   return smoothProjection(values,Math.max(1,Math.round(height/700)));
 }
 
+function verticalLineExtent(mask,width,height,xAtMid,slope){
+  const midY=height/2,raw=new Float64Array(height),radius=Math.max(2,Math.round(width/300));
+  for(let y=0;y<height;y++){
+    const x=Math.round(xAtMid+slope*(y-midY));
+    let value=0;
+    for(let dx=-radius;dx<=radius;dx++)if(x+dx>=0&&x+dx<width)value+=mask[y*width+x+dx];
+    raw[y]=value;
+  }
+  const smooth=smoothProjection(raw,Math.max(4,Math.round(height/180)));
+  const max=Math.max(...smooth),threshold=Math.max(.22,max*.16),maxGap=Math.max(10,Math.round(height*.012));
+  let best=null,start=-1,last=-1,gap=0,support=0;
+  for(let y=Math.round(height*.04);y<Math.round(height*.99);y++){
+    if(smooth[y]>=threshold){
+      if(start<0){start=y;support=0}
+      last=y;gap=0;support+=smooth[y];
+    }else if(start>=0&&gap++>maxGap){
+      const end=last,length=end-start;
+      if(length>height*.25){const score=length+support/Math.max(1,length)*20;if(!best||score>best.score)best={start,end,score,threshold,max}}
+      start=-1;last=-1;gap=0;support=0;
+    }
+  }
+  if(start>=0&&last>start){const length=last-start,score=length+support/Math.max(1,length)*20;if(length>height*.25&&(!best||score>best.score))best={start,end:last,score,threshold,max}}
+  return best;
+}
+
 function nearestPeak(sorted,value,tolerance){
   let lo=0,hi=sorted.length;
   while(lo<hi){const mid=(lo+hi)>>1;if(sorted[mid].position<value)lo=mid+1;else hi=mid;}
@@ -173,6 +198,18 @@ function lineIntersection(horizontalY,horizontalSlope,verticalX,verticalSlope,mi
   return {x:verticalX+verticalSlope*(y-midY),y};
 }
 
+function snapRowStops(peaks,top,bottom){
+  const sorted=peaks.filter(p=>p.strength>0).sort((a,b)=>a.position-b.position);
+  const step=(bottom-top)/31,positions=[top];
+  for(let k=1;k<31;k++){
+    const expected=top+step*k,found=nearestPeak(sorted,expected,Math.max(3,step*.38));
+    const minimum=positions[k-1]+step*.62,maximum=bottom-step*(31-k)*.62;
+    positions.push(clamp(found?.position??expected,minimum,maximum));
+  }
+  positions.push(bottom);
+  return positions.map(position=>(position-top)/(bottom-top));
+}
+
 export function fallbackQuad(width,height){
   return [
     {x:width*.59,y:height*.15},
@@ -208,7 +245,39 @@ export function detectTargetGridFromGray(gray,width,height){
   const horizontalGrid=selectHorizontalGrid(bestHorizontal.peaks,height);
   if(!horizontalGrid)return {points:fallbackQuad(width,height),confidence:.12,debug:{reason:'没有找到连续31行',verticalSlope:bestVertical.slope,verticalLines:verticalGrid.x}};
 
-  const midX=(left+right)/2,midY=height/2,top=horizontalGrid.start,bottom=horizontalGrid.bottom;
+  const lineExtents=verticalGrid.x.map(x=>verticalLineExtent(mask,width,height,x,bestVertical.slope));
+  const usableExtents=lineExtents.filter(Boolean);
+  const extent=usableExtents.length?{
+    start:Math.min(...usableExtents.map(item=>item.start)),
+    end:Math.max(...usableExtents.map(item=>item.end))
+  }:null;
+  let top=horizontalGrid.start,bottom=horizontalGrid.bottom,bottomExtension=0,topCorrection=0;
+  if(extent){
+    const extension=extent.end-bottom;
+    if(extension>horizontalGrid.step*.55&&extent.end<height*.99){
+      bottomExtension=Math.min(extension,horizontalGrid.step*5);
+      bottom+=bottomExtension;
+      if(Math.abs(bestVertical.slope)>.045&&bottomExtension>horizontalGrid.step*2.5){
+        topCorrection=bottomExtension*.5;
+        top+=topCorrection;
+      }
+    }
+    const headerBasedTop=extent.start+horizontalGrid.step;
+    if(headerBasedTop>top+horizontalGrid.step*.55&&headerBasedTop<bottom-horizontalGrid.step*25){
+      topCorrection+=headerBasedTop-top;
+      top=headerBasedTop;
+    }
+    if(top<height*.04||bottom>height*.99||bottom-top<height*.42){
+      top=horizontalGrid.start;bottom=horizontalGrid.bottom;bottomExtension=0;topCorrection=0;
+    }
+  }
+  const rowStops=snapRowStops(bestHorizontal.peaks,top,bottom);
+  const gridWidth=right-left;
+  const columns={
+    carStart:clamp((verticalGrid.x[2]-left)/gridWidth,.24,.42),
+    trackStart:clamp((verticalGrid.x[3]-left)/gridWidth,.52,.76)
+  };
+  const midX=(left+right)/2,midY=height/2;
   const quad=[
     lineIntersection(top,bestHorizontal.slope,left,bestVertical.slope,midX,midY),
     lineIntersection(top,bestHorizontal.slope,right,bestVertical.slope,midX,midY),
@@ -218,8 +287,9 @@ export function detectTargetGridFromGray(gray,width,height){
 
   const rowConfidence=horizontalGrid.matches/32;
   const lineStrength=clamp(verticalGrid.group.reduce((s,p)=>s+p.strength,0)/(height*1.2),0,1);
-  const confidence=clamp(rowConfidence*.75+lineStrength*.25,0,1);
-  return {points:quad,confidence,debug:{reason:'ok',rowMatches:horizontalGrid.matches,rowStep:horizontalGrid.step,horizontalSlope:bestHorizontal.slope,verticalSlope:bestVertical.slope,verticalLines:verticalGrid.x}};
+  const adjustmentRows=(bottomExtension+topCorrection)/Math.max(1,horizontalGrid.step);
+  const confidence=clamp(rowConfidence*.75+lineStrength*.25-Math.min(.5,adjustmentRows*.12),0,1);
+  return {points:quad,rowStops,columns,confidence,debug:{reason:'ok',rowMatches:horizontalGrid.matches,rowStep:horizontalGrid.step,bottomExtension,topCorrection,gridExtent:extent?{start:extent.start,end:extent.end}:null,lineExtents:lineExtents.map(item=>item?{start:item.start,end:item.end}:null),horizontalSlope:bestHorizontal.slope,verticalSlope:bestVertical.slope,verticalLines:verticalGrid.x}};
 }
 
 export function detectTargetGrid(imageData){
