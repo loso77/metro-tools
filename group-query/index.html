@@ -1,0 +1,724 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b6f66">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="车组查询">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="./icon.svg">
+  <title>车组查询</title>
+  <style>
+    :root {
+      --bg: #f3f7f6;
+      --card: rgba(255, 255, 255, .94);
+      --text: #132a27;
+      --muted: #68807c;
+      --line: #dce8e5;
+      --brand: #0b6f66;
+      --brand-dark: #07564f;
+      --brand-soft: #e2f2ef;
+      --danger: #b84040;
+      --danger-soft: #fff0f0;
+      --shadow: 0 16px 42px rgba(20, 61, 55, .10);
+      --radius: 22px;
+    }
+
+    * { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background:
+        radial-gradient(circle at 8% -8%, rgba(54, 159, 144, .17), transparent 34%),
+        linear-gradient(180deg, #eef7f5 0, var(--bg) 280px);
+    }
+
+    button, input, select { font: inherit; }
+    button { -webkit-tap-highlight-color: transparent; }
+
+    .app {
+      width: min(760px, 100%);
+      margin: 0 auto;
+      padding: max(20px, env(safe-area-inset-top)) 16px calc(36px + env(safe-area-inset-bottom));
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin: 4px 2px 22px;
+    }
+
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .logo {
+      width: 45px;
+      height: 45px;
+      display: grid;
+      place-items: center;
+      border-radius: 15px;
+      color: #fff;
+      background: linear-gradient(145deg, #159080, #075a53);
+      box-shadow: 0 10px 24px rgba(11, 111, 102, .25);
+      font-size: 22px;
+      font-weight: 800;
+    }
+    h1 { margin: 0; font-size: 23px; letter-spacing: -.02em; }
+    .subtitle { margin-top: 3px; color: var(--muted); font-size: 13px; }
+
+    .icon-btn {
+      width: 44px;
+      height: 44px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      color: var(--text);
+      background: rgba(255,255,255,.78);
+      cursor: pointer;
+      font-size: 20px;
+    }
+
+    .panel {
+      border: 1px solid rgba(255,255,255,.82);
+      border-radius: var(--radius);
+      background: var(--card);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 5px;
+      margin: 0 0 14px;
+      padding: 5px;
+      border: 1px solid var(--line);
+      border-radius: 15px;
+      background: rgba(255,255,255,.65);
+    }
+    .tab {
+      min-height: 42px;
+      border: 0;
+      border-radius: 11px;
+      color: var(--muted);
+      background: transparent;
+      font-weight: 650;
+      cursor: pointer;
+    }
+    .tab.active { color: var(--brand-dark); background: #fff; box-shadow: 0 3px 12px rgba(24,66,60,.08); }
+
+    .view { display: none; }
+    .view.active { display: block; }
+
+    .query-card { padding: 24px; }
+    .section-kicker { color: var(--brand); font-size: 13px; font-weight: 750; letter-spacing: .08em; }
+    h2 { margin: 6px 0 8px; font-size: 26px; line-height: 1.25; letter-spacing: -.03em; }
+    .hint { margin: 0 0 20px; color: var(--muted); font-size: 14px; line-height: 1.6; }
+
+    .search-row { display: grid; grid-template-columns: 1fr auto; gap: 10px; }
+    .input {
+      width: 100%;
+      min-height: 54px;
+      padding: 0 16px;
+      border: 1px solid var(--line);
+      border-radius: 15px;
+      outline: none;
+      color: var(--text);
+      background: #fff;
+      transition: border-color .18s, box-shadow .18s;
+    }
+    .input:focus { border-color: #65aaa0; box-shadow: 0 0 0 4px rgba(11,111,102,.10); }
+    .primary-btn, .secondary-btn, .danger-btn {
+      min-height: 50px;
+      border-radius: 15px;
+      padding: 0 18px;
+      border: 0;
+      cursor: pointer;
+      font-weight: 700;
+    }
+    .primary-btn { color: #fff; background: var(--brand); box-shadow: 0 9px 20px rgba(11,111,102,.20); }
+    .primary-btn:active { background: var(--brand-dark); transform: translateY(1px); }
+    .secondary-btn { color: var(--brand-dark); background: var(--brand-soft); }
+    .danger-btn { color: var(--danger); background: var(--danger-soft); }
+
+    .quick-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 13px; }
+    .offline-note {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      flex: 0 0 auto;
+      border-radius: 50%;
+      background: #d5a43d;
+      box-shadow: 0 0 0 4px rgba(213,164,61,.12);
+    }
+    .offline-note.ready .status-dot { background: #269b75; box-shadow: 0 0 0 4px rgba(38,155,117,.12); }
+    .offline-note.offline .status-dot { background: #68807c; box-shadow: 0 0 0 4px rgba(104,128,124,.12); }
+    .chip {
+      min-height: 34px;
+      padding: 0 12px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--muted);
+      background: #fff;
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    .results { display: grid; gap: 10px; margin-top: 20px; }
+    .result {
+      display: grid;
+      grid-template-columns: 62px 1fr auto;
+      align-items: center;
+      gap: 14px;
+      min-height: 76px;
+      padding: 13px 14px;
+      border: 1px solid var(--line);
+      border-radius: 17px;
+      background: #fbfdfc;
+      animation: rise .22s ease both;
+    }
+    @keyframes rise { from { opacity: 0; transform: translateY(5px); } }
+    .train-no { font-size: 21px; font-weight: 800; letter-spacing: .04em; }
+    .assignment { font-size: 17px; font-weight: 700; }
+    .assignment small { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; font-weight: 500; }
+    .badge { padding: 6px 9px; border-radius: 9px; color: var(--brand-dark); background: var(--brand-soft); font-size: 12px; font-weight: 700; }
+    .result.unknown { border-color: #edd6d6; background: #fffafa; }
+    .result.unknown .assignment { color: var(--danger); }
+    .result.unknown .badge { color: var(--danger); background: var(--danger-soft); }
+    .empty { padding: 25px 8px 5px; text-align: center; color: var(--muted); font-size: 14px; }
+
+    .manager { padding: 20px; }
+    .manager-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; margin-bottom: 16px; }
+    .manager h2 { margin-top: 0; font-size: 22px; }
+    .count { flex: 0 0 auto; padding: 7px 10px; border-radius: 10px; background: var(--brand-soft); color: var(--brand-dark); font-size: 13px; font-weight: 750; }
+
+    .editor {
+      display: grid;
+      gap: 13px;
+      margin-bottom: 18px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: #f9fcfb;
+    }
+    .editor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    label { display: grid; gap: 7px; color: var(--muted); font-size: 13px; font-weight: 650; }
+    select.input { appearance: none; background-image: linear-gradient(45deg, transparent 50%, #66817d 50%), linear-gradient(135deg, #66817d 50%, transparent 50%); background-position: calc(100% - 19px) 23px, calc(100% - 14px) 23px; background-size: 5px 5px; background-repeat: no-repeat; }
+    .checkline { display: flex; align-items: center; gap: 9px; color: var(--text); font-size: 14px; }
+    .checkline input { width: 19px; height: 19px; accent-color: var(--brand); }
+    .editor-actions { display: grid; grid-template-columns: 1fr auto; gap: 9px; }
+
+    .toolbar { display: grid; grid-template-columns: 1fr auto; gap: 9px; margin-bottom: 12px; }
+    .toolbar .input { min-height: 46px; }
+    .mini-btn { min-height: 46px; border: 1px solid var(--line); border-radius: 13px; padding: 0 14px; background: #fff; color: var(--brand-dark); font-weight: 700; cursor: pointer; }
+
+    .data-list { display: grid; gap: 8px; max-height: 480px; overflow: auto; padding-right: 2px; }
+    .data-item {
+      display: grid;
+      grid-template-columns: 54px 1fr auto;
+      align-items: center;
+      gap: 10px;
+      min-height: 58px;
+      padding: 9px 10px 9px 12px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #fff;
+    }
+    .data-no { font-weight: 800; }
+    .data-value { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+    .item-actions { display: flex; gap: 4px; }
+    .small-icon {
+      width: 35px;
+      height: 35px;
+      border: 0;
+      border-radius: 10px;
+      background: #f0f6f5;
+      cursor: pointer;
+    }
+    .small-icon.delete { color: var(--danger); background: var(--danger-soft); }
+
+    .backup {
+      margin-top: 18px;
+      padding-top: 16px;
+      border-top: 1px solid var(--line);
+    }
+    .backup h3 { margin: 0 0 6px; font-size: 16px; }
+    .backup p { margin: 0 0 12px; color: var(--muted); font-size: 13px; line-height: 1.55; }
+    .backup-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .backup-actions button, .file-label {
+      display: inline-flex;
+      align-items: center;
+      min-height: 41px;
+      padding: 0 13px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      color: var(--text);
+      background: #fff;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 650;
+    }
+    .backup-actions .reset { color: var(--danger); }
+    .file-label input { display: none; }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: calc(22px + env(safe-area-inset-bottom));
+      z-index: 10;
+      max-width: calc(100% - 32px);
+      padding: 11px 16px;
+      border-radius: 12px;
+      color: #fff;
+      background: rgba(19,42,39,.94);
+      box-shadow: 0 10px 30px rgba(0,0,0,.18);
+      opacity: 0;
+      pointer-events: none;
+      transform: translate(-50%, 12px);
+      transition: .2s ease;
+      white-space: nowrap;
+      font-size: 14px;
+    }
+    .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+    footer { padding: 18px 4px 0; text-align: center; color: #849692; font-size: 12px; }
+
+    @media (max-width: 560px) {
+      .app { padding-left: 12px; padding-right: 12px; }
+      .query-card, .manager { padding: 18px; }
+      .search-row { grid-template-columns: 1fr; }
+      .primary-btn { width: 100%; }
+      .editor-grid { grid-template-columns: 1fr; }
+      .result { grid-template-columns: 56px 1fr; }
+      .result .badge { grid-column: 2; justify-self: start; margin-top: -7px; }
+      h2 { font-size: 23px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="logo">车</div>
+        <div>
+          <h1>车组查询</h1>
+          <div class="subtitle">快速查询车辆段与班组</div>
+        </div>
+      </div>
+      <button class="icon-btn" id="focusSearch" title="开始查询" aria-label="开始查询">⌕</button>
+    </header>
+
+    <nav class="tabs" aria-label="页面切换">
+      <button class="tab active" data-view="queryView">查询</button>
+      <button class="tab" data-view="manageView">车组管理</button>
+    </nav>
+
+    <section class="view active" id="queryView">
+      <div class="panel query-card">
+        <div class="section-kicker">TRAIN GROUP</div>
+        <h2>输入车号，立即查询</h2>
+        <p class="hint">支持同时输入多个车号，用空格、逗号或换行隔开；输入 5 会自动识别为 005。</p>
+        <div class="search-row">
+          <input class="input" id="queryInput" type="text" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="search" placeholder="例如：042 005 071" aria-label="车组编号">
+          <button class="primary-btn" id="queryBtn">查询车组</button>
+        </div>
+        <div class="quick-row" id="recentQueries"></div>
+        <div class="offline-note" id="offlineNote">
+          <span class="status-dot"></span>
+          <span id="offlineStatus">正在准备离线功能…</span>
+        </div>
+        <div class="results" id="results">
+          <div class="empty">查询结果会显示在这里</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="view" id="manageView">
+      <div class="panel manager">
+        <div class="manager-head">
+          <div>
+            <h2>车组管理</h2>
+            <p class="hint">新增后立即可以查询，数据会自动保存在当前浏览器。</p>
+          </div>
+          <div class="count" id="dataCount">0 条</div>
+        </div>
+
+        <form class="editor" id="editorForm">
+          <label>车组编号
+            <input class="input" id="editNo" inputmode="numeric" maxlength="3" placeholder="例如：113" required>
+          </label>
+          <div class="editor-grid">
+            <label>车辆段
+              <select class="input" id="editDepot">
+                <option value="古城">古城</option>
+                <option value="四惠">四惠</option>
+                <option value="土桥">土桥</option>
+                <option value="__custom__">自定义…</option>
+              </select>
+            </label>
+            <label>班组
+              <select class="input" id="editTeam">
+                <option value="甲班">甲班</option>
+                <option value="乙班">乙班</option>
+                <option value="丙班">丙班</option>
+                <option value="丁班">丁班</option>
+                <option value="__custom__">自定义…</option>
+              </select>
+            </label>
+          </div>
+          <div class="editor-grid" id="customFields" hidden>
+            <label id="customDepotWrap" hidden>自定义车辆段
+              <input class="input" id="customDepot" placeholder="输入车辆段名称">
+            </label>
+            <label id="customTeamWrap" hidden>自定义班组
+              <input class="input" id="customTeam" placeholder="输入班组名称">
+            </label>
+          </div>
+          <label class="checkline"><input type="checkbox" id="isNewTrain"> 标记为新车</label>
+          <div class="editor-actions">
+            <button class="primary-btn" type="submit" id="saveBtn">添加车组</button>
+            <button class="secondary-btn" type="button" id="cancelEdit" hidden>取消</button>
+          </div>
+        </form>
+
+        <div class="toolbar">
+          <input class="input" id="filterInput" placeholder="搜索车号、车辆段或班组" aria-label="筛选车组">
+          <button class="mini-btn" id="sortBtn" type="button">车号 ↑</button>
+        </div>
+        <div class="data-list" id="dataList"></div>
+
+        <div class="backup">
+          <h3>备份与恢复</h3>
+          <p>新增数据只保存在当前浏览器。建议修改后导出一份备份，换手机时再导入。</p>
+          <div class="backup-actions">
+            <button type="button" id="exportBtn">导出备份</button>
+            <label class="file-label">导入备份<input type="file" id="importInput" accept="application/json,.json"></label>
+            <button type="button" class="reset" id="resetBtn">恢复初始数据</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer>车组查询 · 数据保存在当前设备</footer>
+  </main>
+  <div class="toast" id="toast" role="status"></div>
+
+  <script>
+    const INITIAL_DATA = {
+      "042":"古城 甲班","043":"古城 甲班","050":"古城 甲班","051":"古城 甲班","059":"古城 甲班","060":"古城 甲班","061":"古城 甲班","069":"古城 甲班","070":"古城 甲班",
+      "039":"古城 乙班","040":"古城 乙班","048":"古城 乙班","049":"古城 乙班","057":"古城 乙班","058":"古城 乙班","066":"古城 乙班","067":"古城 乙班","068":"古城 乙班",
+      "036":"古城 丙班","037":"古城 丙班","046":"古城 丙班","047":"古城 丙班","054":"古城 丙班","055":"古城 丙班","056":"古城 丙班","064":"古城 丙班","065":"古城 丙班",
+      "033":"古城 丁班","034":"古城 丁班","041":"古城 丁班","044":"古城 丁班","045":"古城 丁班","052":"古城 丁班","053":"古城 丁班","062":"古城 丁班","063":"古城 丁班",
+      "005":"四惠 甲班","019":"四惠 甲班","027":"四惠 甲班","106":"四惠 甲班","109":"四惠 甲班","110":"四惠 甲班","009":"四惠 甲班（新车）","007":"四惠 甲班（新车）",
+      "014":"四惠 乙班","017":"四惠 乙班","025":"四惠 乙班","101":"四惠 乙班","102":"四惠 乙班","111":"四惠 乙班","112":"四惠 乙班","006":"四惠 乙班（新车）",
+      "002":"四惠 丙班","016":"四惠 丙班","029":"四惠 丙班","032":"四惠 丙班","035":"四惠 丙班","038":"四惠 丙班","024":"四惠 丙班（新车）",
+      "015":"四惠 丁班","018":"四惠 丁班","028":"四惠 丁班","030":"四惠 丁班","031":"四惠 丁班","020":"四惠 丁班（新车）","008":"四惠 丁班（新车）","004":"四惠 丁班（新车）",
+      "071":"土桥 甲班","074":"土桥 甲班","077":"土桥 甲班","083":"土桥 甲班","087":"土桥 甲班","093":"土桥 甲班","095":"土桥 甲班","099":"土桥 甲班","104":"土桥 甲班",
+      "073":"土桥 乙班","075":"土桥 乙班","081":"土桥 乙班","084":"土桥 乙班","085":"土桥 乙班","088":"土桥 乙班","096":"土桥 乙班","105":"土桥 乙班","108":"土桥 乙班",
+      "072":"土桥 丙班","076":"土桥 丙班","082":"土桥 丙班","086":"土桥 丙班","092":"土桥 丙班","094":"土桥 丙班","097":"土桥 丙班","107":"土桥 丙班",
+      "078":"土桥 丁班","079":"土桥 丁班","080":"土桥 丁班","089":"土桥 丁班","090":"土桥 丁班","091":"土桥 丁班","098":"土桥 丁班","100":"土桥 丁班","103":"土桥 丁班"
+    };
+
+    const STORAGE_KEY = "train-group-query-data-v1";
+    const RECENT_KEY = "train-group-query-recent-v1";
+    let data = loadData();
+    let editingOriginal = null;
+    let sortAscending = true;
+    let toastTimer;
+    let offlineReady = Boolean(navigator.serviceWorker && navigator.serviceWorker.controller);
+
+    const $ = (id) => document.getElementById(id);
+    const escapeHtml = (value) => String(value).replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+
+    function loadData() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+        return saved && typeof saved === "object" && !Array.isArray(saved) ? saved : {...INITIAL_DATA};
+      } catch { return {...INITIAL_DATA}; }
+    }
+
+    function saveData(message) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      updateCount();
+      renderDataList();
+      if (message) showToast(message);
+    }
+
+    function normalizeNo(value) {
+      const cleaned = String(value).trim().replace(/^车/, "");
+      return /^\d{1,3}$/.test(cleaned) ? cleaned.padStart(3, "0") : null;
+    }
+
+    function splitQuery(value) {
+      return String(value).split(/[\s,，、;；]+/).map(v => v.trim()).filter(Boolean);
+    }
+
+    function runQuery() {
+      const rawItems = splitQuery($("queryInput").value);
+      const items = rawItems.map(raw => ({raw, no: normalizeNo(raw)}));
+      if (!items.length) {
+        $("results").innerHTML = '<div class="empty">请先输入车号</div>';
+        $("queryInput").focus();
+        return;
+      }
+
+      $("results").innerHTML = items.map(({raw, no}, index) => {
+        const value = no ? data[no] : null;
+        if (!no || !value) {
+          return `<div class="result unknown" style="animation-delay:${index * 35}ms"><div class="train-no">${escapeHtml(no || raw)}</div><div class="assignment">未录入<small>${no ? "可以到“车组管理”中添加" : "车号格式不正确"}</small></div><div class="badge">未找到</div></div>`;
+        }
+        const isNew = value.includes("新车");
+        return `<div class="result" style="animation-delay:${index * 35}ms"><div class="train-no">${escapeHtml(no)}</div><div class="assignment">${escapeHtml(value)}<small>车组信息</small></div><div class="badge">${isNew ? "新车" : "已找到"}</div></div>`;
+      }).join("");
+
+      rememberQuery(items.filter(x => x.no).map(x => x.no).join(" "));
+      renderRecent();
+    }
+
+    function rememberQuery(query) {
+      if (!query) return;
+      let recent = [];
+      try { recent = JSON.parse(localStorage.getItem(RECENT_KEY)) || []; } catch {}
+      recent = [query, ...recent.filter(x => x !== query)].slice(0, 4);
+      localStorage.setItem(RECENT_KEY, JSON.stringify(recent));
+    }
+
+    function renderRecent() {
+      let recent = [];
+      try { recent = JSON.parse(localStorage.getItem(RECENT_KEY)) || []; } catch {}
+      $("recentQueries").innerHTML = recent.length
+        ? '<span style="align-self:center;color:var(--muted);font-size:12px">最近：</span>' + recent.map(q => `<button class="chip" data-query="${escapeHtml(q)}">${escapeHtml(q)}</button>`).join("")
+        : '<button class="chip" data-query="042 005 071">试试：042 005 071</button>';
+    }
+
+    function switchView(viewId) {
+      document.querySelectorAll(".tab").forEach(tab => tab.classList.toggle("active", tab.dataset.view === viewId));
+      document.querySelectorAll(".view").forEach(view => view.classList.toggle("active", view.id === viewId));
+      if (viewId === "manageView") renderDataList();
+    }
+
+    function updateCustomFields() {
+      const depotCustom = $("editDepot").value === "__custom__";
+      const teamCustom = $("editTeam").value === "__custom__";
+      $("customFields").hidden = !depotCustom && !teamCustom;
+      $("customDepotWrap").hidden = !depotCustom;
+      $("customTeamWrap").hidden = !teamCustom;
+    }
+
+    function getAssignment() {
+      const depot = $("editDepot").value === "__custom__" ? $("customDepot").value.trim() : $("editDepot").value;
+      const team = $("editTeam").value === "__custom__" ? $("customTeam").value.trim() : $("editTeam").value;
+      if (!depot || !team) return null;
+      return `${depot} ${team}${$("isNewTrain").checked ? "（新车）" : ""}`;
+    }
+
+    function handleSave(event) {
+      event.preventDefault();
+      const no = normalizeNo($("editNo").value);
+      const assignment = getAssignment();
+      if (!no) return showToast("请输入 1—3 位数字车号");
+      if (!assignment) return showToast("请填写完整的车辆段和班组");
+
+      if (!editingOriginal && data[no] && !confirm(`${no} 已存在，是否覆盖原信息？`)) return;
+      if (editingOriginal && editingOriginal !== no) delete data[editingOriginal];
+      data[no] = assignment;
+      resetEditor();
+      saveData(editingOriginal ? "车组信息已更新" : `已添加 ${no}`);
+    }
+
+    function parseAssignment(value) {
+      const isNew = value.includes("（新车）");
+      const clean = value.replace("（新车）", "").trim();
+      const firstSpace = clean.indexOf(" ");
+      return {
+        depot: firstSpace > -1 ? clean.slice(0, firstSpace) : clean,
+        team: firstSpace > -1 ? clean.slice(firstSpace + 1) : "",
+        isNew
+      };
+    }
+
+    function startEdit(no) {
+      const parsed = parseAssignment(data[no]);
+      editingOriginal = no;
+      $("editNo").value = no;
+      setSelectOrCustom("editDepot", "customDepot", parsed.depot);
+      setSelectOrCustom("editTeam", "customTeam", parsed.team);
+      $("isNewTrain").checked = parsed.isNew;
+      updateCustomFields();
+      $("saveBtn").textContent = "保存修改";
+      $("cancelEdit").hidden = false;
+      $("editorForm").scrollIntoView({behavior:"smooth", block:"center"});
+    }
+
+    function setSelectOrCustom(selectId, inputId, value) {
+      const select = $(selectId);
+      const exists = Array.from(select.options).some(option => option.value === value);
+      select.value = exists ? value : "__custom__";
+      $(inputId).value = exists ? "" : value;
+    }
+
+    function resetEditor() {
+      editingOriginal = null;
+      $("editorForm").reset();
+      $("editDepot").value = "古城";
+      $("editTeam").value = "甲班";
+      $("customDepot").value = "";
+      $("customTeam").value = "";
+      $("saveBtn").textContent = "添加车组";
+      $("cancelEdit").hidden = true;
+      updateCustomFields();
+    }
+
+    function deleteItem(no) {
+      if (!confirm(`确定删除 ${no}：${data[no]} 吗？`)) return;
+      delete data[no];
+      if (editingOriginal === no) resetEditor();
+      saveData(`已删除 ${no}`);
+    }
+
+    function filteredEntries() {
+      const keyword = $("filterInput").value.trim().toLowerCase();
+      return Object.entries(data)
+        .filter(([no, value]) => !keyword || no.includes(keyword) || value.toLowerCase().includes(keyword))
+        .sort((a, b) => sortAscending ? Number(a[0]) - Number(b[0]) : Number(b[0]) - Number(a[0]));
+    }
+
+    function renderDataList() {
+      const entries = filteredEntries();
+      $("dataList").innerHTML = entries.length ? entries.map(([no, value]) => `
+        <div class="data-item">
+          <div class="data-no">${escapeHtml(no)}</div>
+          <div class="data-value" title="${escapeHtml(value)}">${escapeHtml(value)}</div>
+          <div class="item-actions">
+            <button class="small-icon" data-edit="${no}" title="修改 ${no}" aria-label="修改 ${no}">✎</button>
+            <button class="small-icon delete" data-delete="${no}" title="删除 ${no}" aria-label="删除 ${no}">×</button>
+          </div>
+        </div>`).join("") : '<div class="empty">没有符合条件的数据</div>';
+    }
+
+    function updateCount() { $("dataCount").textContent = `${Object.keys(data).length} 条`; }
+
+    function exportBackup() {
+      const payload = {app:"车组查询", version:1, exportedAt:new Date().toISOString(), data};
+      const blob = new Blob([JSON.stringify(payload, null, 2)], {type:"application/json"});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `车组查询备份-${new Date().toISOString().slice(0,10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast("备份已导出");
+    }
+
+    async function importBackup(file) {
+      try {
+        const parsed = JSON.parse(await file.text());
+        const imported = parsed.data || parsed;
+        if (!imported || typeof imported !== "object" || Array.isArray(imported)) throw new Error();
+        const cleaned = {};
+        for (const [rawNo, rawValue] of Object.entries(imported)) {
+          const no = normalizeNo(rawNo);
+          const value = String(rawValue).trim();
+          if (no && value) cleaned[no] = value;
+        }
+        if (!Object.keys(cleaned).length) throw new Error();
+        if (!confirm(`将导入 ${Object.keys(cleaned).length} 条数据，并覆盖当前数据。是否继续？`)) return;
+        data = cleaned;
+        resetEditor();
+        saveData("备份导入成功");
+      } catch { showToast("备份文件无法识别"); }
+      finally { $("importInput").value = ""; }
+    }
+
+    function resetData() {
+      if (!confirm("确定恢复最初的 102 条车组数据吗？你后来添加和修改的内容会被清除。")) return;
+      data = {...INITIAL_DATA};
+      resetEditor();
+      saveData("已恢复初始数据");
+    }
+
+    function showToast(message) {
+      clearTimeout(toastTimer);
+      $("toast").textContent = message;
+      $("toast").classList.add("show");
+      toastTimer = setTimeout(() => $("toast").classList.remove("show"), 1800);
+    }
+
+    function updateOfflineStatus() {
+      const note = $("offlineNote");
+      note.classList.toggle("offline", !navigator.onLine);
+      note.classList.toggle("ready", navigator.onLine && offlineReady);
+      if (!navigator.onLine) {
+        $("offlineStatus").textContent = offlineReady ? "当前已离线，仍可正常使用" : "当前离线，请联网打开一次以启用离线功能";
+      } else {
+        $("offlineStatus").textContent = offlineReady ? "离线功能已就绪" : "正在准备离线功能…";
+      }
+    }
+
+    async function enableOfflineMode() {
+      updateOfflineStatus();
+      if (!("serviceWorker" in navigator)) {
+        $("offlineStatus").textContent = "当前浏览器不支持完整离线模式";
+        return;
+      }
+      try {
+        await navigator.serviceWorker.register("./sw.js", {updateViaCache: "none"});
+        await navigator.serviceWorker.ready;
+        offlineReady = true;
+        updateOfflineStatus();
+      } catch {
+        $("offlineStatus").textContent = navigator.onLine ? "离线功能准备失败，请刷新重试" : "当前已离线";
+      }
+    }
+
+    document.querySelectorAll(".tab").forEach(tab => tab.addEventListener("click", () => switchView(tab.dataset.view)));
+    $("queryBtn").addEventListener("click", runQuery);
+    $("queryInput").addEventListener("keydown", event => { if (event.key === "Enter") runQuery(); });
+    $("focusSearch").addEventListener("click", () => { switchView("queryView"); $("queryInput").focus(); });
+    $("recentQueries").addEventListener("click", event => {
+      const button = event.target.closest("[data-query]");
+      if (!button) return;
+      $("queryInput").value = button.dataset.query;
+      runQuery();
+    });
+    $("editDepot").addEventListener("change", updateCustomFields);
+    $("editTeam").addEventListener("change", updateCustomFields);
+    $("editorForm").addEventListener("submit", handleSave);
+    $("cancelEdit").addEventListener("click", resetEditor);
+    $("filterInput").addEventListener("input", renderDataList);
+    $("sortBtn").addEventListener("click", () => {
+      sortAscending = !sortAscending;
+      $("sortBtn").textContent = `车号 ${sortAscending ? "↑" : "↓"}`;
+      renderDataList();
+    });
+    $("dataList").addEventListener("click", event => {
+      const edit = event.target.closest("[data-edit]");
+      const del = event.target.closest("[data-delete]");
+      if (edit) startEdit(edit.dataset.edit);
+      if (del) deleteItem(del.dataset.delete);
+    });
+    $("exportBtn").addEventListener("click", exportBackup);
+    $("importInput").addEventListener("change", event => { if (event.target.files[0]) importBackup(event.target.files[0]); });
+    $("resetBtn").addEventListener("click", resetData);
+    window.addEventListener("online", () => { updateOfflineStatus(); showToast("网络已恢复"); });
+    window.addEventListener("offline", () => { updateOfflineStatus(); showToast("已离线，仍可继续使用"); });
+
+    updateCount();
+    renderDataList();
+    renderRecent();
+    enableOfflineMode();
+  </script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+{
+  "name": "PR2607 列车查询",
+  "short_name": "列车查询",
+  "description": "北京地铁1号线列车实时位置查询",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f0f4f8",
+  "theme_color": "#1a56db",
+  "orientation": "portrait"
+}

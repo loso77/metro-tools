@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b6f66">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="地铁工具箱">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="./icon.svg">
+  <title>地铁工具箱</title>
+  <style>
+    :root {
+      --brand: #0b6f66;
+      --brand-dark: #07564f;
+      --soft: #e5f3f0;
+      --text: #142a27;
+      --muted: #6b807d;
+      --line: #d9e6e3;
+      --header-h: 126px;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; }
+    body {
+      color: var(--text);
+      background: #eef5f3;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    button { font: inherit; -webkit-tap-highlight-color: transparent; }
+    .shell { width: 100%; height: 100%; display: grid; grid-template-rows: auto 1fr; }
+    .top {
+      position: relative;
+      z-index: 5;
+      padding: max(10px, env(safe-area-inset-top)) 12px 9px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(248, 252, 251, .96);
+      box-shadow: 0 5px 20px rgba(20, 58, 52, .08);
+      backdrop-filter: blur(18px);
+    }
+    .title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      width: min(980px, 100%);
+      margin: 0 auto 9px;
+    }
+    .brand { display: flex; align-items: center; gap: 9px; min-width: 0; }
+    .logo {
+      width: 37px;
+      height: 37px;
+      display: grid;
+      place-items: center;
+      flex: 0 0 auto;
+      border-radius: 12px;
+      color: #fff;
+      background: linear-gradient(145deg, #159080, #075a53);
+      box-shadow: 0 7px 16px rgba(11, 111, 102, .22);
+      font-size: 20px;
+    }
+    h1 { margin: 0; font-size: 18px; line-height: 1.15; }
+    .status { margin-top: 2px; color: var(--muted); font-size: 11px; white-space: nowrap; }
+    .open-btn {
+      width: 37px;
+      height: 37px;
+      flex: 0 0 auto;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      color: var(--brand-dark);
+      background: #fff;
+      cursor: pointer;
+      font-size: 18px;
+    }
+    .tabs {
+      width: min(980px, 100%);
+      margin: 0 auto;
+      padding: 4px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 4px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #edf4f2;
+    }
+    .tab {
+      min-width: 0;
+      min-height: 42px;
+      padding: 0 5px;
+      border: 0;
+      border-radius: 10px;
+      color: var(--muted);
+      background: transparent;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .tab.active { color: var(--brand-dark); background: #fff; box-shadow: 0 3px 12px rgba(19, 67, 60, .10); }
+    .workspace { position: relative; min-height: 0; background: #f3f7f6; }
+    .tool-frame { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: none; background: #fff; }
+    .tool-frame.active { display: block; }
+    .loading {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      color: var(--muted);
+      font-size: 14px;
+      pointer-events: none;
+    }
+    @media (min-width: 760px) {
+      .top { padding-left: 20px; padding-right: 20px; }
+      .tab { font-size: 15px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="top">
+      <div class="title-row">
+        <div class="brand">
+          <div class="logo">🚇</div>
+          <div>
+            <h1>地铁工具箱</h1>
+            <div class="status" id="statusText">正在准备离线功能…</div>
+          </div>
+        </div>
+        <button class="open-btn" id="openTool" title="单独打开当前工具" aria-label="单独打开当前工具">↗</button>
+      </div>
+      <nav class="tabs" aria-label="工具选择">
+        <button class="tab active" data-tool="train-query">列车查询</button>
+        <button class="tab" data-tool="trainsheet-ai">车表识别</button>
+        <button class="tab" data-tool="group-query">车组查询</button>
+      </nav>
+    </header>
+    <section class="workspace">
+      <div class="loading" id="loading">正在加载工具…</div>
+      <iframe class="tool-frame active" id="frame-train-query" src="./train-query/" title="列车查询" allow="clipboard-read; clipboard-write"></iframe>
+      <iframe class="tool-frame" id="frame-trainsheet-ai" data-src="./trainsheet-ai/" title="车表识别" allow="camera; clipboard-read; clipboard-write"></iframe>
+      <iframe class="tool-frame" id="frame-group-query" data-src="./group-query/" title="车组查询" allow="clipboard-read; clipboard-write"></iframe>
+    </section>
+  </main>
+  <script>
+    const TOOLS = {
+      "train-query": "./train-query/",
+      "trainsheet-ai": "./trainsheet-ai/",
+      "group-query": "./group-query/"
+    };
+    let activeTool = "train-query";
+    let offlineReady = Boolean(navigator.serviceWorker && navigator.serviceWorker.controller);
+
+    function selectTool(tool, updateHash = true) {
+      if (!TOOLS[tool]) tool = "train-query";
+      activeTool = tool;
+      document.querySelectorAll(".tab").forEach(button => button.classList.toggle("active", button.dataset.tool === tool));
+      document.querySelectorAll(".tool-frame").forEach(frame => frame.classList.toggle("active", frame.id === `frame-${tool}`));
+      const frame = document.getElementById(`frame-${tool}`);
+      if (!frame.getAttribute("src")) frame.src = frame.dataset.src;
+      document.getElementById("loading").hidden = true;
+      if (updateHash) history.replaceState(null, "", `#${tool}`);
+    }
+
+    function updateStatus() {
+      const text = document.getElementById("statusText");
+      if (!navigator.onLine) {
+        text.textContent = offlineReady ? "当前已离线，工具仍可使用" : "当前离线，请先联网打开一次";
+      } else {
+        text.textContent = offlineReady ? "三个工具的离线包已就绪" : "正在准备离线功能…";
+      }
+    }
+
+    async function registerOffline() {
+      updateStatus();
+      if (!("serviceWorker" in navigator)) {
+        document.getElementById("statusText").textContent = "当前浏览器不支持完整离线模式";
+        return;
+      }
+      try {
+        await navigator.serviceWorker.register("./sw.js", {updateViaCache: "none"});
+        await navigator.serviceWorker.ready;
+        offlineReady = true;
+        updateStatus();
+      } catch {
+        document.getElementById("statusText").textContent = "离线包准备失败，请刷新重试";
+      }
+    }
+
+    document.querySelector(".tabs").addEventListener("click", event => {
+      const button = event.target.closest("[data-tool]");
+      if (button) selectTool(button.dataset.tool);
+    });
+    document.getElementById("openTool").addEventListener("click", () => window.open(TOOLS[activeTool], "_blank", "noopener"));
+    window.addEventListener("online", updateStatus);
+    window.addEventListener("offline", updateStatus);
+    window.addEventListener("hashchange", () => selectTool(location.hash.slice(1), false));
+
+    selectTool(location.hash.slice(1) || "train-query", false);
+    registerOffline();
+  </script>
+</body>
+</html>
