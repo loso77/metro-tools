@@ -58,6 +58,22 @@ button:active{transform:translateY(1px)}
 .crop-wrap canvas{display:block;width:100%;height:auto;image-rendering:auto}
 .crop-divider{position:absolute;top:0;bottom:0;width:2px;background:#ef4444;box-shadow:0 0 0 1px #fff8;pointer-events:none}
 #previousRow,#nextRow{padding:8px 13px;font-size:18px}
+.batch-toolbar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+.batch-status{margin:0 0 12px;padding:10px 12px;border-radius:12px;background:#f1f7f5;color:var(--muted);font-size:14px;line-height:1.5}
+.batch-status.warning{background:#fff4dc;color:#8a5a00}
+.batch-status.good{background:#e7f8ed;color:#166534}
+.batch-rows{display:grid;gap:10px}
+.batch-row{border:1px solid var(--line);border-radius:16px;padding:11px;background:#fbfdfc}
+.batch-row-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
+.batch-row-head strong{font-size:17px}
+.row-state{font-size:12px;color:var(--muted);font-weight:800}
+.row-state.complete{color:#166534}
+.batch-crop{display:block;width:100%;height:auto;border:1px solid var(--line);border-radius:10px;background:#d9e2df}
+.batch-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:9px}
+.batch-fields label{display:grid;gap:5px;color:var(--muted);font-size:12px;font-weight:700}
+.batch-fields input{width:100%;min-width:0;border:1px solid var(--line);border-radius:10px;padding:10px 11px;background:#fff;color:var(--ink);font-size:17px;font-weight:750;outline:none}
+.batch-fields input:focus{border-color:var(--brand);box-shadow:0 0 0 3px #0f766e18}
+.batch-fields input.duplicate{border-color:#dc2626;background:#fff1f1;color:#991b1b}
 footer{text-align:center;color:var(--muted);font-size:13px;padding:8px}
 @media(max-width:560px){
   .app{padding-left:9px;padding-right:9px}
@@ -66,4 +82,5 @@ footer{text-align:center;color:var(--muted);font-size:13px;padding:8px}
   .toolbar button{flex:1 1 42%;padding:10px 8px;font-size:14px}
   .edge-tools div{grid-template-columns:repeat(2,1fr)}
   .section-head{flex-wrap:wrap}
+  .batch-toolbar button{flex:1 1 30%;padding:10px 7px;font-size:13px}
 }

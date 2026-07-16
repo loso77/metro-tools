@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#0f766e">
-  <title>车表定位测试</title>
+  <title>车表逐行核对测试</title>
   <link rel="stylesheet" href="./style.css">
 </head>
 <body>
@@ -12,8 +12,8 @@
     <header class="hero">
       <div>
         <p class="eyebrow">TRAIN SHEET LOCATOR</p>
-        <h1>车表定位测试</h1>
-        <p>先确认31–61每一行的车号、股道位置，不进行文字识别。</p>
+        <h1>车表逐行核对测试</h1>
+        <p>自动定位31–61行，生成车号与股道裁片，先建立可靠的识别核对流程。</p>
       </div>
       <a href="../" class="back">返回正式版</a>
     </header>
@@ -96,8 +96,25 @@
       <p id="rowHint" class="row-hint"></p>
     </section>
 
-    <footer>测试版不会上传照片，也不会调用大模型。定位内核 2026.07.16-3</footer>
+    <section id="batchCard" class="card hidden">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">31 ROW REVIEW</p>
+          <h2>逐行识别准备</h2>
+          <p>每张裁片左侧是车号，橙线右侧是股道。当前先人工录入，用于建立可核对的测试结果。</p>
+        </div>
+      </div>
+      <div class="batch-toolbar">
+        <button id="regenerateRows" type="button" class="primary">重新生成裁片</button>
+        <button id="copyRows" type="button">复制结果</button>
+        <button id="clearRows" type="button">清空输入</button>
+      </div>
+      <p id="batchStatus" class="batch-status">尚未生成裁片。</p>
+      <div id="batchRows" class="batch-rows"></div>
+    </section>
+
+    <footer>照片只在本机处理。逐行核对版 2026.07.16-4</footer>
   </main>
-  <script type="module" src="./locator.js?v=20260716-3"></script>
+  <script type="module" src="./locator.js?v=20260716-4"></script>
 </body>
 </html>
