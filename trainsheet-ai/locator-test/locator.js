@@ -1,4 +1,4 @@
-import {detectTargetGrid,fallbackQuad,quadPoint} from './locator-core.mjs?v=20260716-4';
+import {detectTargetGrid,fallbackQuad,quadPoint} from './locator-core.mjs?v=20260717-5';
 
 const $=id=>document.getElementById(id);
 const E={
