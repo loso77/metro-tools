@@ -189,3 +189,13 @@ tr.high-risk{background:#ffe4e6!important}
 .provider-picker .hint{margin:8px 2px 0}
 .provider-picker .provider-warning{color:#b42318;font-weight:700}
 .compare-workspace.has-results .provider-picker{display:none}
+
+/* V2.7.0：快速主识别 + 疑难行自动复核 */
+.review-toggle{display:flex;align-items:center;gap:9px;margin-top:10px;padding:9px 10px;border-radius:11px;background:#eef4ff;color:#344054;font-size:13px;font-weight:700;cursor:pointer}
+.review-toggle input{width:18px;height:18px;accent-color:#2563eb;flex:0 0 auto}
+.reviewing-row{background:#eff6ff}
+.review-agreed{background:#ecfdf3}
+.review-badge{display:block;margin-top:3px;font-size:9px;line-height:1.15;font-weight:800;color:#067647}
+.review-badge.pending{color:#1d4ed8}
+.review-badge.disagreed{color:#b42318}
+.review-candidates{display:block;margin-top:3px;font-size:9px;line-height:1.2;color:#b42318;font-weight:700}
