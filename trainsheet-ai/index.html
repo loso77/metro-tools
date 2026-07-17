@@ -64,7 +64,8 @@
           <label><input type="radio" name="modelProvider" value="gemini" checked><span>原 AI</span></label>
           <label><input type="radio" name="modelProvider" value="doubao"><span>豆包 AI</span></label>
         </div>
-        <p id="providerHint" class="hint">每次只调用所选模型；人工改正和下载方式不变。</p>
+        <label class="review-toggle"><input id="autoReview" type="checkbox" checked><span>自动复核疑难行（推荐，不重复计次）</span></label>
+        <p id="providerHint" class="hint">先调用所选模型；只把疑难行交给另一模型复核。</p>
       </div>
 
       <label class="upload">
@@ -110,7 +111,7 @@
     </section>
   </div>
 
-  <footer>V2.6.0 · 原 AI / 豆包 AI 手动选择</footer>
+  <footer>V2.7.0 · 快速识别 / 疑难行自动复核</footer>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script src="app.js"></script>
