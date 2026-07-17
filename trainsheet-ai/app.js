@@ -1,6 +1,6 @@
 const $=id=>document.getElementById(id);
-const E={settingsBtn:$('settingsBtn'),settingsPanel:$('settingsPanel'),closeSettings:$('closeSettings'),workerUrl:$('workerUrl'),saveWorker:$('saveWorker'),debugModelBtn:$('debugModelBtn'),connectionState:$('connectionState'),logoutBtn:$('logoutBtn'),authCard:$('authCard'),accessCode:$('accessCode'),authorizeBtn:$('authorizeBtn'),authStatus:$('authStatus'),mainCard:$('mainCard'),providerHint:$('providerHint'),imageInput:$('imageInput'),preview:$('preview'),previewWrap:$('previewWrap'),resetZoomBtn:$('resetZoomBtn'),removeImage:$('removeImage'),recognizeBtn:$('recognizeBtn'),progress:$('progress'),status:$('status'),quota:$('quota'),resultCard:$('resultCard'),summary:$('summary'),resultBody:$('resultBody'),clearResult:$('clearResult'),copyBtn:$('copyBtn'),csvBtn:$('csvBtn'),xlsxBtn:$('xlsxBtn'),editAllBtn:$('editAllBtn'),compareWorkspace:$('compareWorkspace'),trainMin:$('trainMin'),trainMax:$('trainMax'),configBody:$('configBody'),configCount:$('configCount'),addConfigRow:$('addConfigRow'),sortConfig:$('sortConfig'),restoreConfig:$('restoreConfig'),saveConfig:$('saveConfig'),configStatus:$('configStatus')};
-let file=null,rows=[],originalRows=[],editAllMode=false;
+const E={settingsBtn:$('settingsBtn'),settingsPanel:$('settingsPanel'),closeSettings:$('closeSettings'),workerUrl:$('workerUrl'),saveWorker:$('saveWorker'),debugModelBtn:$('debugModelBtn'),connectionState:$('connectionState'),logoutBtn:$('logoutBtn'),authCard:$('authCard'),accessCode:$('accessCode'),authorizeBtn:$('authorizeBtn'),authStatus:$('authStatus'),mainCard:$('mainCard'),providerHint:$('providerHint'),autoReview:$('autoReview'),imageInput:$('imageInput'),preview:$('preview'),previewWrap:$('previewWrap'),resetZoomBtn:$('resetZoomBtn'),removeImage:$('removeImage'),recognizeBtn:$('recognizeBtn'),progress:$('progress'),status:$('status'),quota:$('quota'),resultCard:$('resultCard'),summary:$('summary'),resultBody:$('resultBody'),clearResult:$('clearResult'),copyBtn:$('copyBtn'),csvBtn:$('csvBtn'),xlsxBtn:$('xlsxBtn'),editAllBtn:$('editAllBtn'),compareWorkspace:$('compareWorkspace'),trainMin:$('trainMin'),trainMax:$('trainMax'),configBody:$('configBody'),configCount:$('configCount'),addConfigRow:$('addConfigRow'),sortConfig:$('sortConfig'),restoreConfig:$('restoreConfig'),saveConfig:$('saveConfig'),configStatus:$('configStatus')};
+let file=null,rows=[],originalRows=[],editAllMode=false,reviewing=false,providerAvailability=null;
 const DEFAULT_CONFIG={entries:[{table_no:31,time:'4:21'},{table_no:32,time:'4:46'},{table_no:33,time:'4:50'},{table_no:34,time:'4:52'},{table_no:35,time:'5:00'},{table_no:36,time:'5:08'},{table_no:37,time:'5:10'},{table_no:38,time:'5:16'},{table_no:39,time:'5:18'},{table_no:40,time:'5:38'},{table_no:41,time:'5:47'},{table_no:42,time:'5:51'},{table_no:43,time:'5:55'},{table_no:44,time:'5:59'},{table_no:45,time:'6:05'},{table_no:46,time:'6:09'},{table_no:47,time:'6:13'},{table_no:48,time:'6:19'},{table_no:49,time:'6:23'},{table_no:50,time:'6:27'},{table_no:51,time:'6:31'},{table_no:52,time:'6:35'},{table_no:53,time:'6:39'},{table_no:54,time:'6:43'},{table_no:55,time:'6:47'},{table_no:56,time:'6:51'},{table_no:57,time:'6:55'},{table_no:58,time:'7:00'},{table_no:59,time:'7:05'},{table_no:60,time:'7:17'},{table_no:61,time:'7:35'}],train_number:{min:1,max:112,unique:true}};
 function cloneConfig(c){return JSON.parse(JSON.stringify(c))}
 function sanitizeLocalConfig(raw){
@@ -15,14 +15,17 @@ function loadConfig(){try{return sanitizeLocalConfig(JSON.parse(localStorage.get
 let sheetConfig=loadConfig(),draftConfig=cloneConfig(sheetConfig);
 function configEntries(){return sheetConfig.entries}
 function apiConfig(){return {entries:sheetConfig.entries.map(x=>({table_no:x.table_no,time:x.time})),train_number:{...sheetConfig.train_number,unique:true},track_unique:true}}
-const state={get base(){return(localStorage.getItem('ts_worker')||'').replace(/\/+$/,'')},get token(){return localStorage.getItem('ts_token')||''},get provider(){const v=localStorage.getItem('ts_provider');return v==='doubao'?'doubao':'gemini'},setToken(v){v?localStorage.setItem('ts_token',v):localStorage.removeItem('ts_token')},setProvider(v){localStorage.setItem('ts_provider',v==='doubao'?'doubao':'gemini')}};
+const state={get base(){return(localStorage.getItem('ts_worker')||'').replace(/\/+$/,'')},get token(){return localStorage.getItem('ts_token')||''},get provider(){const v=localStorage.getItem('ts_provider');return v==='doubao'?'doubao':'gemini'},get autoReview(){return localStorage.getItem('ts_auto_review')!=='0'},setToken(v){v?localStorage.setItem('ts_token',v):localStorage.removeItem('ts_token')},setProvider(v){localStorage.setItem('ts_provider',v==='doubao'?'doubao':'gemini')},setAutoReview(v){localStorage.setItem('ts_auto_review',v?'1':'0')}};
 function selectedProvider(){return document.querySelector('input[name="modelProvider"]:checked')?.value==='doubao'?'doubao':'gemini'}
 function providerLabel(provider=selectedProvider()){return provider==='doubao'?'豆包 AI':'原 AI'}
 function updateProviderHint(availability){
+  if(availability)providerAvailability=availability;
   if(!E.providerHint)return;
   const provider=selectedProvider();
   if(availability&&availability[provider]===false){E.providerHint.textContent=`${providerLabel(provider)} 尚未在后端配置，请先完成 Cloudflare 环境变量设置。`;E.providerHint.classList.add('provider-warning');return}
-  E.providerHint.textContent=`当前使用：${providerLabel(provider)}。每次只调用所选模型；人工改正和下载方式不变。`;
+  const other=provider==='doubao'?'gemini':'doubao';
+  const reviewText=E.autoReview?.checked?(providerAvailability?.[other]===false?'另一模型未配置，疑难行将保留人工核对。':`疑难行将由${providerLabel(other)}独立复核，不重复计次。`):'自动复核已关闭。';
+  E.providerHint.textContent=`主识别：${providerLabel(provider)}。${reviewText}`;
   E.providerHint.classList.remove('provider-warning');
 }
 function status(el,msg,type=''){el.textContent=msg;el.className=`status ${type}`.trim()}
@@ -32,13 +35,59 @@ async function api(path,options={}){if(!state.base)throw new Error('请先填写
 async function check(){if(!state.base){E.connectionState.textContent='请填写 Worker 地址。';authUI(false);return}try{const d=await api('/health',{headers:headers(false)});E.connectionState.textContent=d.ok?'Worker 连接正常。':'Worker 尚未配置完整。';updateProviderHint(d.providers);if(state.token){try{const me=await api('/me',{headers:headers()});authUI(true);showQuota(me)}catch(e){if(e.status===401)state.setToken('');authUI(false)}}}catch(e){E.connectionState.textContent='连接失败：'+e.message;authUI(false)}}
 function showQuota(d){if(!d)return;E.quota.textContent=`今日本设备 ${d.device_used}/${d.device_limit} 次；服务总计 ${d.global_used}/${d.global_limit} 次。令牌有效至 ${new Date(d.expires_at*1000).toLocaleDateString()}。`}
 async function authorize(){const code=E.accessCode.value.trim();if(!code)return status(E.authStatus,'请输入设备授权码。','error');E.authorizeBtn.disabled=true;status(E.authStatus,'正在验证……');try{const d=await api('/auth',{method:'POST',headers:headers(false),body:JSON.stringify({code,device_name:navigator.userAgent.slice(0,120)})});state.setToken(d.token);E.accessCode.value='';authUI(true);showQuota(d);status(E.status,'设备已授权，请选择照片。','success')}catch(e){status(E.authStatus,e.message,'error')}finally{E.authorizeBtn.disabled=false}}
-function resetImage(){resetPhotoZoom();file=null;E.imageInput.value='';E.preview.src='';E.previewWrap.classList.add('hidden');E.recognizeBtn.disabled=true;status(E.status,'请选择照片。')}
+function resetImage(){resetPhotoZoom();file=null;reviewing=false;E.imageInput.value='';E.preview.src='';E.previewWrap.classList.add('hidden');E.recognizeBtn.disabled=true;status(E.status,'请选择照片。')}
 function compress(file,max=1900,quality=.86){return new Promise((res,rej)=>{const img=new Image(),u=URL.createObjectURL(file);img.onload=()=>{let w=img.width,h=img.height,s=Math.min(1,max/Math.max(w,h));w=Math.round(w*s);h=Math.round(h*s);const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);URL.revokeObjectURL(u);res(c.toDataURL('image/jpeg',quality))};img.onerror=()=>{URL.revokeObjectURL(u);rej(new Error('照片读取失败'))};img.src=u})}
 function normalizeTrackName(value){let s=String(value??'').trim().toUpperCase();s=s.replace(/[→➡➜➝]/g,'').replace(/-?>/g,'').replace(/\s+/g,'').replace(/[，。,.；;:：]/g,'');const c=s.match(/^(\d{1,2})(东|西)$/);if(c)return c[1]+c[2];const a=s.match(/^(\d{1,2})(A|C)$/);if(a)return a[1]+(a[2]==='A'?'东':'西');return s}
-function norm(input){const entries=configEntries(),allowed=new Set(entries.map(x=>x.table_no)),times=new Map(entries.map(x=>[x.table_no,x.time])),m=new Map();(Array.isArray(input)?input:[]).forEach(x=>{const n=Number(x.table_no);if(!allowed.has(n)||m.has(n))return;m.set(n,{table_no:n,time:times.get(n)||'',train_number:String(x.train_number??'').trim(),track_name:normalizeTrackName(x.track_name),old_train_number:String(x.old_train_number??'').trim(),old_track_name:normalizeTrackName(x.old_track_name),train_modified:Boolean(x.train_modified),track_modified:Boolean(x.track_modified),ambiguity:Boolean(x.ambiguity),needs_review:Boolean(x.needs_review),review_reasons:Array.isArray(x.review_reasons)?x.review_reasons.map(String):[],note:String(x.note??'').trim(),confidence:Math.max(0,Math.min(1,Number(x.confidence)||0))})});return entries.map(e=>m.get(e.table_no)||{table_no:e.table_no,time:e.time,train_number:'',track_name:'',old_train_number:'',old_track_name:'',train_modified:false,track_modified:false,ambiguity:true,needs_review:true,review_reasons:['模型未返回该表号'],note:'模型未返回该表号',confidence:0})}
+function norm(input){const entries=configEntries(),allowed=new Set(entries.map(x=>x.table_no)),times=new Map(entries.map(x=>[x.table_no,x.time])),m=new Map();(Array.isArray(input)?input:[]).forEach(x=>{const n=Number(x.table_no);if(!allowed.has(n)||m.has(n))return;m.set(n,{table_no:n,time:times.get(n)||'',train_number:String(x.train_number??'').trim(),track_name:normalizeTrackName(x.track_name),old_train_number:String(x.old_train_number??'').trim(),old_track_name:normalizeTrackName(x.old_track_name),train_modified:Boolean(x.train_modified),track_modified:Boolean(x.track_modified),ambiguity:Boolean(x.ambiguity),needs_review:Boolean(x.needs_review),review_reasons:Array.isArray(x.review_reasons)?x.review_reasons.map(String):[],review_status:String(x.review_status||''),review_candidates:x.review_candidates||null,note:String(x.note??'').trim(),confidence:Math.max(0,Math.min(1,Number(x.confidence)||0))})});return entries.map(e=>m.get(e.table_no)||{table_no:e.table_no,time:e.time,train_number:'',track_name:'',old_train_number:'',old_track_name:'',train_modified:false,track_modified:false,ambiguity:true,needs_review:true,review_reasons:['模型未返回该表号'],review_status:'',review_candidates:null,note:'模型未返回该表号',confidence:0})}
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}
+function cloneRows(value=rows){return JSON.parse(JSON.stringify(value))}
+function alternateProvider(provider){return provider==='doubao'?'gemini':'doubao'}
+function reviewConfig(tableNos){const wanted=new Set(tableNos.map(Number));return{entries:sheetConfig.entries.filter(x=>wanted.has(x.table_no)).map(x=>({...x})),train_number:{...sheetConfig.train_number,unique:true},track_unique:true}}
+function retryableModelError(error){return [502,503,504].includes(Number(error?.status))}
+function revalidateRows(){
+  const trainMap=new Map(),trackMap=new Map(),min=sheetConfig.train_number.min,max=sheetConfig.train_number.max;
+  rows.forEach(r=>{
+    const reasons=(r.review_reasons||[]).filter(x=>/自动复核失败|双模型结果不一致|复核模型仍不确定/.test(x));
+    const n=Number(r.train_number);
+    if(!r.train_number)reasons.push('车号为空');
+    else if(!/^\d{3}$/.test(r.train_number)||n<min||n>max)reasons.push(`车号不在${String(min).padStart(3,'0')}—${String(max).padStart(3,'0')}范围内`);
+    if(!r.track_name)reasons.push('股道为空');
+    if(r.review_status!=='agreed'){
+      if(r.train_modified)reasons.push('车号存在划掉或重写');
+      if(r.track_modified)reasons.push('股道存在划掉或重写');
+      if(r.ambiguity)reasons.push('模型认为最终值仍不确定');
+      if(r.confidence<.88)reasons.push('最终值置信度不足');
+    }
+    r.review_reasons=[...new Set(reasons)];
+    if(/^\d{3}$/.test(r.train_number)&&n>=min&&n<=max){if(!trainMap.has(r.train_number))trainMap.set(r.train_number,[]);trainMap.get(r.train_number).push(r)}
+    if(r.track_name){if(!trackMap.has(r.track_name))trackMap.set(r.track_name,[]);trackMap.get(r.track_name).push(r)}
+  });
+  for(const [value,list]of trainMap)if(list.length>1)list.forEach(r=>r.review_reasons.push(`车号${value}重复`));
+  for(const [value,list]of trackMap)if(list.length>1)list.forEach(r=>r.review_reasons.push(`股道${value}重复`));
+  rows.forEach(r=>{r.review_reasons=[...new Set(r.review_reasons)];r.needs_review=r.review_reasons.length>0});
+}
+function mergeReview(reviewRows,provider,tableNos){
+  const secondary=new Map((Array.isArray(reviewRows)?reviewRows:[]).map(r=>[Number(r.table_no),r]));
+  const selected=new Set(tableNos.map(Number));
+  rows.forEach(primary=>{
+    if(!selected.has(primary.table_no))return;
+    const second=secondary.get(primary.table_no);
+    if(!second){primary.review_status='failed';primary.review_reasons=[...(primary.review_reasons||[]),'自动复核失败：未返回该表号'];return}
+    const secondTrain=String(second.train_number??'').trim(),secondTrack=normalizeTrackName(second.track_name);
+    const certain=Boolean(secondTrain&&secondTrack&&!second.ambiguity&&Number(second.confidence)>=.75);
+    if(certain&&secondTrain===primary.train_number&&secondTrack===primary.track_name){
+      primary.review_status='agreed';primary.review_candidates=null;primary.ambiguity=false;primary.confidence=Math.max(primary.confidence,Number(second.confidence)||0);
+    }else if(secondTrain||secondTrack){
+      primary.review_status='disagreed';primary.review_candidates={provider,primary:{train_number:primary.train_number,track_name:primary.track_name},secondary:{train_number:secondTrain,track_name:secondTrack}};primary.review_reasons=[...(primary.review_reasons||[]),'双模型结果不一致'];
+    }else{
+      primary.review_status='uncertain';primary.review_candidates=null;primary.review_reasons=[...(primary.review_reasons||[]),'复核模型仍不确定'];
+    }
+  });
+  revalidateRows();
+}
+function markReviewFailure(tableNos,message){const selected=new Set(tableNos.map(Number));rows.forEach(r=>{if(selected.has(r.table_no)){r.review_status='failed';r.review_reasons=[...(r.review_reasons||[]),`自动复核失败：${message}`]}});revalidateRows()}
 function setCompareMode(on){E.compareWorkspace.classList.toggle('has-results',on);document.querySelector('.app').classList.toggle('compare-active',on)}
-function render(){E.resultBody.innerHTML='';let n=0,modified=0,conflicts=0;rows.forEach((r,i)=>{const empty=!r.train_number||!r.track_name,review=Boolean(r.needs_review)||r.confidence<.88||r.ambiguity||empty;if(review)n++;if(r.train_modified||r.track_modified)modified++;if((r.review_reasons||[]).some(x=>x.includes('重复')))conflicts++;const tr=document.createElement('tr');if(review)tr.classList.add('review');if(r.ambiguity)tr.classList.add('high-risk');if(empty)tr.classList.add('empty');const reasons=(r.review_reasons||[]).join('；')||r.note||'';if(reasons)tr.title=`表号${r.table_no}：${reasons}`;const locked=!editAllMode&&!review;tr.innerHTML=`<td class="table-number">${esc(r.table_no)}</td><td class="fixed-time">${esc(r.time)}${review?'<span class="row-alert">需核对</span>':''}</td><td><input aria-label="表号${r.table_no}车号" data-i="${i}" data-k="train_number" value="${esc(r.train_number)}" placeholder="空" ${locked?'readonly':''}></td><td><input aria-label="表号${r.table_no}股道" data-i="${i}" data-k="track_name" value="${esc(r.track_name)}" placeholder="空" ${locked?'readonly':''}></td>`;if(locked)tr.classList.add('locked-row');E.resultBody.appendChild(tr)});E.summary.textContent=`${rows.length}条记录，${n}行需要人工确认；检测到${modified}行涂改，${conflicts}行涉及重复冲突。黄色行可直接修改；也可点击“编辑全部”修改任何结果。`;E.editAllBtn.textContent=editAllMode?'完成全部编辑':'编辑全部车号/股道';E.editAllBtn.classList.toggle('active',editAllMode);E.resultCard.classList.remove('hidden');setCompareMode(true);requestAnimationFrame(()=>E.compareWorkspace.scrollIntoView({behavior:'smooth',block:'start'}))}
+function render(){E.resultBody.innerHTML='';let n=0,modified=0,conflicts=0,agreed=0;rows.forEach((r,i)=>{const empty=!r.train_number||!r.track_name,review=Boolean(r.needs_review)||empty;if(review)n++;if(r.review_status==='agreed')agreed++;if(r.train_modified||r.track_modified)modified++;if((r.review_reasons||[]).some(x=>x.includes('重复')))conflicts++;const tr=document.createElement('tr');if(review)tr.classList.add('review');if(r.review_status==='pending')tr.classList.add('reviewing-row');if(r.review_status==='agreed')tr.classList.add('review-agreed');if(r.ambiguity)tr.classList.add('high-risk');if(empty)tr.classList.add('empty');const reasons=(r.review_reasons||[]).join('；')||r.note||'';if(reasons)tr.title=`表号${r.table_no}：${reasons}`;let badge=review?'<span class="row-alert">需核对</span>':'';if(r.review_status==='pending')badge='<span class="review-badge pending">自动复核中</span>';if(r.review_status==='agreed')badge='<span class="review-badge">双模型一致</span>';if(r.review_status==='disagreed')badge='<span class="review-badge disagreed">双模型不一致</span>';if(r.review_status==='failed')badge='<span class="review-badge disagreed">复核失败</span>';if(r.review_status==='uncertain')badge='<span class="review-badge disagreed">复核仍不确定</span>';let candidates='';if(r.review_candidates?.secondary){const c=r.review_candidates.secondary;candidates=`<span class="review-candidates">${esc(providerLabel(r.review_candidates.provider))}：${esc(c.train_number||'空')} / ${esc(c.track_name||'空')}</span>`}const locked=reviewing||(!editAllMode&&!review);tr.innerHTML=`<td class="table-number">${esc(r.table_no)}</td><td class="fixed-time">${esc(r.time)}${badge}${candidates}</td><td><input aria-label="表号${r.table_no}车号" data-i="${i}" data-k="train_number" value="${esc(r.train_number)}" placeholder="空" ${locked?'readonly':''}></td><td><input aria-label="表号${r.table_no}股道" data-i="${i}" data-k="track_name" value="${esc(r.track_name)}" placeholder="空" ${locked?'readonly':''}></td>`;if(locked)tr.classList.add('locked-row');E.resultBody.appendChild(tr)});const phase=reviewing?'正在复核疑难行，结果暂时锁定；':agreed?`${agreed}行已获双模型一致确认；`:'';E.summary.textContent=`${rows.length}条记录，${n}行需要人工确认；${phase}检测到${modified}行涂改，${conflicts}行涉及重复冲突。黄色行可直接修改；也可点击“编辑全部”修改任何结果。`;E.editAllBtn.disabled=reviewing;E.xlsxBtn.disabled=reviewing;E.editAllBtn.textContent=editAllMode?'完成全部编辑':'编辑全部车号/股道';E.editAllBtn.classList.toggle('active',editAllMode);E.resultCard.classList.remove('hidden');setCompareMode(true);if(!reviewing)requestAnimationFrame(()=>E.compareWorkspace.scrollIntoView({behavior:'smooth',block:'start'}))}
 
 async function debugModel(){
   if(!state.token){status(E.authStatus,'请先完成设备授权。','error');return}
@@ -62,7 +111,68 @@ async function debugModel(){
     E.debugModelBtn.disabled=false;
   }
 }
-async function recognize(){if(!file)return;const provider=selectedProvider();E.recognizeBtn.disabled=true;E.progress.classList.remove('hidden');let timer=null;status(E.status,'正在本地压缩照片……');try{const image=await compress(file);const start=Date.now();timer=setInterval(()=>{const s=Math.floor((Date.now()-start)/1000);status(E.status,`${providerLabel(provider)}正在识别当前配置的 ${sheetConfig.entries.length} 个表号……已等待 ${s} 秒`);},1000);status(E.status,`${providerLabel(provider)}正在识别当前配置的 ${sheetConfig.entries.length} 个表号……已等待 0 秒`);const d=await api('/recognize',{method:'POST',headers:headers(),body:JSON.stringify({image,config:apiConfig(),provider})});rows=norm(d.rows);originalRows=rows.map(r=>({...r}));render();showQuota(d.usage);const extra=d.model_provider?`模型：${d.model_provider} / ${d.model_name||''}，耗时${Math.round((d.elapsed_ms||0)/1000)}秒。`:'';status(E.status,'识别完成：时间来自当前配置，请核对车号和股道。'+extra,'success')}catch(e){if(e.status===401){state.setToken('');authUI(false)}status(E.status,e.message,'error')}finally{if(timer)clearInterval(timer);E.progress.classList.add('hidden');E.recognizeBtn.disabled=!file}}
+async function recognize(){
+  if(!file)return;
+  const chosen=selectedProvider();
+  E.recognizeBtn.disabled=true;E.progress.classList.remove('hidden');
+  let timer=null,phase=`${providerLabel(chosen)}正在识别当前配置的 ${sheetConfig.entries.length} 个表号`;
+  status(E.status,'正在本地压缩照片……');
+  try{
+    const image=await compress(file),start=Date.now();
+    timer=setInterval(()=>status(E.status,`${phase}……已等待 ${Math.floor((Date.now()-start)/1000)} 秒`),1000);
+    status(E.status,`${phase}……已等待 0 秒`);
+    let primaryProvider=chosen,d;
+    try{
+      d=await api('/recognize',{method:'POST',headers:headers(),body:JSON.stringify({image,config:apiConfig(),provider:primaryProvider})});
+    }catch(firstError){
+      const fallback=alternateProvider(primaryProvider);
+      if(!retryableModelError(firstError)||providerAvailability?.[fallback]===false)throw firstError;
+      phase=`${providerLabel(primaryProvider)}未完成，正在改用${providerLabel(fallback)}`;
+      status(E.status,`${firstError.message} 正在自动改用${providerLabel(fallback)}，失败请求不计次数。`);
+      primaryProvider=fallback;
+      try{
+        d=await api('/recognize',{method:'POST',headers:headers(),body:JSON.stringify({image,config:apiConfig(),provider:primaryProvider})});
+      }catch(secondError){
+        secondError.message=`${providerLabel(chosen)}未完成；${providerLabel(fallback)}也未完成：${secondError.message}`;
+        throw secondError;
+      }
+    }
+
+    rows=norm(d.rows);revalidateRows();showQuota(d.usage);
+    const primaryExtra=`${providerLabel(primaryProvider)}耗时${Math.round((d.elapsed_ms||0)/1000)}秒`;
+    const reviewInfo=E.autoReview?.checked&&d.review?.token&&Array.isArray(d.review.table_nos)&&d.review.table_nos.length?d.review:null;
+    if(!reviewInfo){
+      originalRows=cloneRows();render();
+      const reason=E.autoReview?.checked?'没有可用的自动复核任务；疑难行已保留人工核对。':'自动复核已关闭。';
+      status(E.status,`识别完成（${primaryExtra}）。${reason}`,'success');
+      return;
+    }
+
+    const selected=new Set(reviewInfo.table_nos.map(Number));
+    rows.forEach(r=>{if(selected.has(r.table_no))r.review_status='pending'});
+    reviewing=true;render();
+    phase=`${providerLabel(reviewInfo.provider)}正在复核 ${reviewInfo.table_nos.length} 个疑难表号`;
+    status(E.status,`${primaryExtra}，结果已显示；${phase}。`);
+    try{
+      const reviewResult=await api('/recognize',{method:'POST',headers:headers(),body:JSON.stringify({mode:'review',review_token:reviewInfo.token,image,config:reviewConfig(reviewInfo.table_nos),provider:reviewInfo.provider})});
+      mergeReview(reviewResult.rows,reviewInfo.provider,reviewInfo.table_nos);showQuota(reviewResult.usage);
+      const limited=Number(reviewInfo.total_flagged)>reviewInfo.table_nos.length?`已优先复核最疑难的${reviewInfo.table_nos.length}行，其余疑难行保留人工确认。`:'';
+      status(E.status,`识别与自动复核完成：主识别${primaryExtra}，复核耗时${Math.round((reviewResult.elapsed_ms||0)/1000)}秒。${limited}`,'success');
+    }catch(reviewError){
+      markReviewFailure(reviewInfo.table_nos,reviewError.message);
+      status(E.status,`主识别已完成（${primaryExtra}）；自动复核未完成：${reviewError.message}。第一模型结果已保留，可手工核对。`,'error');
+    }finally{
+      reviewing=false;originalRows=cloneRows();render();
+    }
+  }catch(e){
+    reviewing=false;
+    if(e.status===401){state.setToken('');authUI(false)}
+    status(E.status,e.message,'error');
+  }finally{
+    if(timer)clearInterval(timer);
+    E.progress.classList.add('hidden');E.recognizeBtn.disabled=!file;
+  }
+}
 function csvEsc(v){const s=String(v??'');return /[",\n]/.test(s)?`"${s.replace(/"/g,'""')}"`:s}
 function exportCsv(){const lines=[['表号','车号','时间','股道'],...rows.map(r=>[r.table_no,r.train_number,r.time,r.track_name])].map(x=>x.map(csvEsc).join(','));const b=new Blob(['\uFEFF'+lines.join('\n')],{type:'text/csv;charset=utf-8'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`全股道时刻表_${safeFileDate()}.csv`;a.click();URL.revokeObjectURL(a.href)}
 function safeFileDate(){const d=new Date(),pad=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}_${pad(d.getHours())}-${pad(d.getMinutes())}`}
@@ -159,7 +269,7 @@ function renderConfigEditor(){
 }
 function syncDraftConfig(){draftConfig.train_number.min=Number(E.trainMin.value);draftConfig.train_number.max=Number(E.trainMax.value);}
 function validateDraftConfig(){syncDraftConfig();if(!Number.isInteger(draftConfig.train_number.min)||!Number.isInteger(draftConfig.train_number.max)||draftConfig.train_number.min<0||draftConfig.train_number.max>999||draftConfig.train_number.min>draftConfig.train_number.max)throw new Error('车号范围必须是0—999之间的有效整数，且最小值不能大于最大值。');if(!draftConfig.entries.length)throw new Error('至少需要保留一个表号。');if(draftConfig.entries.length>100)throw new Error('一次最多配置100个表号。');const seen=new Set();for(const x of draftConfig.entries){const n=Number(x.table_no),time=String(x.time??'').trim();if(!Number.isInteger(n)||n<1||n>9999)throw new Error('表号必须是1—9999之间的整数。');if(seen.has(n))throw new Error(`表号${n}重复。`);seen.add(n);if(!time)throw new Error(`表号${n}还没有填写时间。`);x.table_no=n;x.time=time.slice(0,20)}return true}
-function resetRecognitionForConfigChange(){if(rows.length){rows=[];originalRows=[];editAllMode=false;E.resultCard.classList.add('hidden');setCompareMode(false)}}
+function resetRecognitionForConfigChange(){if(rows.length){rows=[];originalRows=[];editAllMode=false;reviewing=false;E.resultCard.classList.add('hidden');setCompareMode(false)}}
 function openConfigEditor(){draftConfig=cloneConfig(sheetConfig);renderConfigEditor()}
 E.configBody.oninput=e=>{const x=e.target.closest('[data-config-i]');if(!x)return;const i=Number(x.dataset.configI),k=x.dataset.configK;if(!draftConfig.entries[i])return;draftConfig.entries[i][k]=k==='table_no'?Number(x.value):x.value;E.configCount.textContent=`当前草稿共 ${draftConfig.entries.length} 个表号。`};
 E.configBody.onclick=e=>{const b=e.target.closest('[data-config-delete]');if(!b)return;draftConfig.entries.splice(Number(b.dataset.configDelete),1);renderConfigEditor()};
@@ -283,4 +393,4 @@ if(photoStage){
 
 if(E.resetZoomBtn) E.resetZoomBtn.onclick=resetPhotoZoom;
 
-E.settingsBtn.onclick=()=>{const opening=E.settingsPanel.classList.contains('hidden');E.settingsPanel.classList.toggle('hidden');if(opening)openConfigEditor()};E.closeSettings.onclick=()=>E.settingsPanel.classList.add('hidden');E.saveWorker.onclick=()=>{localStorage.setItem('ts_worker',E.workerUrl.value.trim().replace(/\/+$/,''));check()};E.debugModelBtn.onclick=debugModel;E.logoutBtn.onclick=()=>{state.setToken('');authUI(false);status(E.authStatus,'本机令牌已删除。','success')};E.authorizeBtn.onclick=authorize;E.imageInput.onchange=()=>{const f=E.imageInput.files?.[0];if(!f)return;if(!/^image\/(jpeg|png|webp)$/.test(f.type))return status(E.status,'只支持JPG、PNG或WebP。','error');if(f.size>12*1024*1024)return status(E.status,'原图不能超过12MB。','error');file=f;resetPhotoZoom();E.preview.src=URL.createObjectURL(f);E.previewWrap.classList.remove('hidden');E.recognizeBtn.disabled=false;status(E.status,'照片已选择。')};E.removeImage.onclick=resetImage;E.recognizeBtn.onclick=recognize;E.resultBody.oninput=e=>{const x=e.target.closest('input[data-i]');if(x){const i=Number(x.dataset.i),k=x.dataset.k;rows[i][k]=k==='track_name'?normalizeTrackName(x.value):x.value.trim();if(k==='track_name'&&document.activeElement!==x)x.value=rows[i][k]}};E.resultBody.onchange=e=>{const x=e.target.closest('input[data-i]');if(x&&x.dataset.k==='track_name'){rows[Number(x.dataset.i)].track_name=normalizeTrackName(x.value);x.value=rows[Number(x.dataset.i)].track_name}};E.editAllBtn.onclick=()=>{editAllMode=!editAllMode;render();status(E.status,editAllMode?'已开放全部车号和股道，可逐项修改。':'已结束全部编辑；黄色行仍可继续修改。','success')};E.clearResult.onclick=()=>{rows=[];originalRows=[];editAllMode=false;E.resultCard.classList.add('hidden');setCompareMode(false)};E.copyBtn.onclick=async()=>{const t=[['表号','车号','时间','股道'],...rows.map(r=>[r.table_no,r.train_number,r.time,r.track_name])].map(x=>x.join('\t')).join('\n');try{await navigator.clipboard.writeText(t);status(E.status,'已复制，可粘贴到WPS或Excel。','success')}catch{status(E.status,'复制失败，请导出XLSX。','error')}};E.csvBtn.onclick=exportCsv;E.xlsxBtn.onclick=exportXlsx;document.querySelectorAll('input[name="modelProvider"]').forEach(input=>{input.checked=input.value===state.provider;input.addEventListener('change',()=>{if(!input.checked)return;state.setProvider(input.value);updateProviderHint();status(E.status,`已选择${providerLabel(input.value)}，下次识别将只调用该模型。`,'success')})});updateProviderHint();E.workerUrl.value=state.base;openConfigEditor();authUI(!!state.token);check();if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+E.settingsBtn.onclick=()=>{const opening=E.settingsPanel.classList.contains('hidden');E.settingsPanel.classList.toggle('hidden');if(opening)openConfigEditor()};E.closeSettings.onclick=()=>E.settingsPanel.classList.add('hidden');E.saveWorker.onclick=()=>{localStorage.setItem('ts_worker',E.workerUrl.value.trim().replace(/\/+$/,''));check()};E.debugModelBtn.onclick=debugModel;E.logoutBtn.onclick=()=>{state.setToken('');authUI(false);status(E.authStatus,'本机令牌已删除。','success')};E.authorizeBtn.onclick=authorize;E.imageInput.onchange=()=>{const f=E.imageInput.files?.[0];if(!f)return;if(!/^image\/(jpeg|png|webp)$/.test(f.type))return status(E.status,'只支持JPG、PNG或WebP。','error');if(f.size>12*1024*1024)return status(E.status,'原图不能超过12MB。','error');file=f;resetPhotoZoom();E.preview.src=URL.createObjectURL(f);E.previewWrap.classList.remove('hidden');E.recognizeBtn.disabled=false;status(E.status,'照片已选择。')};E.removeImage.onclick=resetImage;E.recognizeBtn.onclick=recognize;E.resultBody.oninput=e=>{const x=e.target.closest('input[data-i]');if(x){const i=Number(x.dataset.i),k=x.dataset.k;rows[i][k]=k==='track_name'?normalizeTrackName(x.value):x.value.trim();if(k==='track_name'&&document.activeElement!==x)x.value=rows[i][k]}};E.resultBody.onchange=e=>{const x=e.target.closest('input[data-i]');if(x&&x.dataset.k==='track_name'){rows[Number(x.dataset.i)].track_name=normalizeTrackName(x.value);x.value=rows[Number(x.dataset.i)].track_name}};E.editAllBtn.onclick=()=>{if(reviewing)return;editAllMode=!editAllMode;render();status(E.status,editAllMode?'已开放全部车号和股道，可逐项修改。':'已结束全部编辑；黄色行仍可继续修改。','success')};E.clearResult.onclick=()=>{rows=[];originalRows=[];editAllMode=false;reviewing=false;E.resultCard.classList.add('hidden');setCompareMode(false)};E.copyBtn.onclick=async()=>{const t=[['表号','车号','时间','股道'],...rows.map(r=>[r.table_no,r.train_number,r.time,r.track_name])].map(x=>x.join('\t')).join('\n');try{await navigator.clipboard.writeText(t);status(E.status,'已复制，可粘贴到WPS或Excel。','success')}catch{status(E.status,'复制失败，请导出XLSX。','error')}};E.csvBtn.onclick=exportCsv;E.xlsxBtn.onclick=exportXlsx;document.querySelectorAll('input[name="modelProvider"]').forEach(input=>{input.checked=input.value===state.provider;input.addEventListener('change',()=>{if(!input.checked)return;state.setProvider(input.value);updateProviderHint();status(E.status,`已选择${providerLabel(input.value)}作为主识别模型。`,'success')})});if(E.autoReview){E.autoReview.checked=state.autoReview;E.autoReview.onchange=()=>{state.setAutoReview(E.autoReview.checked);updateProviderHint();status(E.status,E.autoReview.checked?'已开启疑难行自动复核。':'已关闭自动复核；疑难行仍可人工修改。','success')}}updateProviderHint();E.workerUrl.value=state.base;openConfigEditor();authUI(!!state.token);check();if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
