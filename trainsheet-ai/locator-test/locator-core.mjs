@@ -177,6 +177,103 @@ function selectPerspectiveVerticalGrid(points,mask,width,height){
   return best;
 }
 
+function selectNumberAnchorSequence(mask,width,height,verticalLines,verticalSlopes,quad){
+  const raw=new Float64Array(height),midY=height/2;
+  for(let y=0;y<height;y++){
+    const left=verticalLines[0]+verticalSlopes[0]*(y-midY),right=verticalLines[1]+verticalSlopes[1]*(y-midY);
+    const gap=right-left,x0=Math.round(left+gap*.16),x1=Math.round(right-gap*.14);let ink=0;
+    for(let x=clamp(x0,0,width-1);x<=clamp(x1,0,width-1);x++)ink+=mask[y*width+x];
+    const span=Math.max(1,x1-x0+1);raw[y]=ink/span>.48?0:ink;
+  }
+  const signal=smoothProjection(raw,Math.max(2,Math.round(height/500))),allPeaks=[];
+  for(let y=2;y<height-2;y++)if(signal[y]>=signal[y-1]&&signal[y]>signal[y+1])allPeaks.push({y,value:signal[y]});
+  allPeaks.sort((a,b)=>b.value-a.value);
+  const peaks=[],minimumDistance=Math.max(9,Math.round(height/100));
+  for(const peak of allPeaks){
+    if(peaks.every(item=>Math.abs(item.y-peak.y)>minimumDistance))peaks.push(peak);
+    if(peaks.length>=80)break;
+  }
+  peaks.sort((a,b)=>a.y-b.y);
+  const top=(quad[0].y+quad[1].y)/2,bottom=(quad[2].y+quad[3].y)/2,baseStep=(bottom-top)/31,maxValue=Math.max(1,...peaks.map(item=>item.value));
+  let best=null;
+  for(let scale=.76;scale<=1.101;scale+=.02){
+    const step=baseStep*scale,minGap=step*.55,maxGap=step*1.48;
+    const candidates=peaks.filter(item=>item.y>=Math.max(0,top-step*.6)&&item.y<=Math.min(height-1,bottom+step*.25));
+    const scores=Array.from({length:31},()=>new Float64Array(candidates.length).fill(-1e9));
+    const previous=Array.from({length:31},()=>new Int16Array(candidates.length).fill(-1));
+    for(let j=0;j<candidates.length;j++){
+      const item=candidates[j];if(item.y>top+step*2.6)continue;
+      scores[0][j]=item.value/maxValue*3-Math.abs(item.y-(top+step*.5))/step*.35;
+    }
+    for(let index=1;index<31;index++)for(let j=0;j<candidates.length;j++){
+      const item=candidates[j],evidence=item.value/maxValue;
+      for(let i=0;i<j;i++){
+        const gap=item.y-candidates[i].y;if(gap<minGap||gap>maxGap)continue;
+        const score=scores[index-1][i]+evidence*3-Math.abs(gap-step)/step*1.8;
+        if(score>scores[index][j]){scores[index][j]=score;previous[index][j]=i}
+      }
+    }
+    for(let j=0;j<candidates.length;j++){
+      const score=scores[30][j]-Math.abs(candidates[j].y-(bottom-step*.5))/step*5;if(score<-1e8)continue;
+      if(!best||score>best.score){
+        const sequence=[];let candidateIndex=j;
+        for(let index=30;index>=0;index--){sequence.push(candidates[candidateIndex]);candidateIndex=previous[index][candidateIndex]}
+        sequence.reverse();best={score,step,sequence};
+      }
+    }
+  }
+  if(!best||best.score<52)return null;
+  const centers=best.sequence.map(item=>item.y),boundaries=[centers[0]-(centers[1]-centers[0])/2];
+  for(let index=1;index<centers.length;index++)boundaries.push((centers[index-1]+centers[index])/2);
+  boundaries.push(centers.at(-1)+(centers.at(-1)-centers.at(-2))/2);
+  return {score:best.score,centers,boundaries:boundaries.map(value=>clamp(value,0,height-1))};
+}
+
+function traceNumberRowEdges(mask,width,height,anchors,verticalLines,verticalSlopes){
+  const midY=height/2;
+  const candidateRows=anchors.boundaries.map((boundary,index)=>{
+    const previousBoundary=anchors.boundaries[Math.max(0,index-1)],nextBoundary=anchors.boundaries[Math.min(31,index+1)];
+    const localStep=Math.max(12,(nextBoundary-previousBoundary)/(index===0||index===31?1:2));
+    const left=verticalLines[0]+verticalSlopes[0]*(boundary-midY),right=verticalLines[4]+verticalSlopes[4]*(boundary-midY);
+    const numberLeft=verticalLines[0]+verticalSlopes[0]*(boundary-midY),numberRight=verticalLines[1]+verticalSlopes[1]*(boundary-midY),anchorX=(numberLeft+numberRight)/2;
+    const candidates=[];
+    for(let offset=-localStep*.2;offset<=localStep*.201;offset+=1)for(let slope=-.3;slope<=.301;slope+=.01){
+      let hits=0,run=0,longest=0,samples=0;
+      for(let x=Math.round(left);x<=Math.round(right);x+=2){
+        const y=Math.round(boundary+offset+slope*(x-anchorX));let hit=0;
+        for(let dy=-1;dy<=1;dy++)if(y+dy>=0&&y+dy<height&&x>=0&&x<width)hit=Math.max(hit,mask[(y+dy)*width+x]);
+        if(hit){hits++;run++;longest=Math.max(longest,run)}else run=0;samples++;
+      }
+      const score=hits/Math.max(1,samples)+longest/Math.max(1,samples)*.35-Math.abs(offset)/localStep*.28;
+      candidates.push({score,slope,left:{x:left,y:boundary+offset+slope*(left-anchorX)},right:{x:right,y:boundary+offset+slope*(right-anchorX)}});
+    }
+    candidates.sort((a,b)=>b.score-a.score);const diverse=[];
+    for(const candidate of candidates){
+      if(diverse.every(item=>Math.abs(item.left.y-candidate.left.y)>2||Math.abs(item.right.y-candidate.right.y)>2))diverse.push(candidate);
+      if(diverse.length>=48)break;
+    }
+    return diverse;
+  });
+  const scores=candidateRows.map(row=>new Float64Array(row.length).fill(-1e9)),previous=candidateRows.map(row=>new Int16Array(row.length).fill(-1));
+  for(let index=0;index<candidateRows[0].length;index++)scores[0][index]=candidateRows[0][index].score*5;
+  for(let row=1;row<candidateRows.length;row++){
+    const expectedGap=anchors.boundaries[row]-anchors.boundaries[row-1],minGap=expectedGap*.35,maxGap=expectedGap*1.8;
+    for(let j=0;j<candidateRows[row].length;j++)for(let i=0;i<candidateRows[row-1].length;i++){
+      const current=candidateRows[row][j],prior=candidateRows[row-1][i],leftGap=current.left.y-prior.left.y,rightGap=current.right.y-prior.right.y;
+      if(leftGap<minGap||rightGap<minGap||leftGap>maxGap||rightGap>maxGap)continue;
+      const gapPenalty=(Math.abs(leftGap-expectedGap)+Math.abs(rightGap-expectedGap))/Math.max(1,expectedGap)*.45;
+      const score=scores[row-1][i]+current.score*5-gapPenalty-Math.abs(current.slope-prior.slope)*1.2;
+      if(score>scores[row][j]){scores[row][j]=score;previous[row][j]=i}
+    }
+  }
+  const last=scores.length-1;let bestIndex=-1,bestScore=-1e9;
+  for(let index=0;index<scores[last].length;index++)if(scores[last][index]>bestScore){bestScore=scores[last][index];bestIndex=index}
+  if(bestIndex<0)return null;
+  const selected=[];
+  for(let row=last;row>=0;row--){selected.push(candidateRows[row][bestIndex]);bestIndex=previous[row][bestIndex]}
+  return selected.reverse().map(item=>({left:item.left,right:item.right}));
+}
+
 function nearestPeak(sorted,value,tolerance){
   let lo=0,hi=sorted.length;
   while(lo<hi){const mid=(lo+hi)>>1;if(sorted[mid].position<value)lo=mid+1;else hi=mid;}
@@ -452,25 +549,33 @@ export function detectTargetGridFromGray(gray,width,height){
   }
   if(usedBroadGrid){top=0;topCorrection=top-horizontalGrid.start}
   if(usedBroadGrid&&bottom>height*.94){bottom=height-1;bottomExtension=bottom-horizontalGrid.bottom}
-  const rowStops=snapRowStops(bestHorizontal.peaks,top,bottom);
+  let rowStops=snapRowStops(bestHorizontal.peaks,top,bottom);
   const gridWidth=right-left;
   const columns={
     carStart:clamp((verticalLines[2]-left)/gridWidth,.24,.42),
     trackStart:clamp((verticalLines[3]-left)/gridWidth,.52,.76)
   };
   const midX=(left+right)/2,midY=height/2;
-  const quad=[
+  let quad=[
     lineIntersection(top,bestHorizontal.slope,left,leftVerticalSlope,midX,midY),
     lineIntersection(top,bestHorizontal.slope,right,rightVerticalSlope,midX,midY),
     lineIntersection(bottom,bestHorizontal.slope,right,rightVerticalSlope,midX,midY),
     lineIntersection(bottom,bestHorizontal.slope,left,leftVerticalSlope,midX,midY)
   ].map(p=>({x:clamp(p.x,0,width-1),y:clamp(p.y,0,height-1)}));
 
+  const resolvedVerticalSlopes=individualVerticalSlopes??verticalLines.map(()=>bestVertical.slope);
+  const numberAnchors=selectNumberAnchorSequence(mask,width,height,verticalLines,resolvedVerticalSlopes,quad);
+  const rowEdges=numberAnchors?traceNumberRowEdges(mask,width,height,numberAnchors,verticalLines,resolvedVerticalSlopes):null;
+  if(rowEdges?.length===32){
+    quad=[rowEdges[0].left,rowEdges[0].right,rowEdges[31].right,rowEdges[31].left];
+    rowStops=Array.from({length:32},(_,index)=>index/31);
+  }
+
   const rowConfidence=horizontalGrid.matches/32;
   const lineStrength=clamp(verticalGrid.group.reduce((s,p)=>s+p.strength,0)/(height*1.2),0,1);
   const adjustmentRows=(Math.abs(bottomExtension)+Math.abs(topCorrection))/Math.max(1,horizontalGrid.step);
   const confidence=clamp(rowConfidence*.75+lineStrength*.25-Math.min(.5,adjustmentRows*.12),0,1);
-  return {points:quad,rowStops,columns,confidence,debug:{reason:'ok',rowMatches:anchoredGrid?.matches??horizontalGrid.matches,rowStep:anchoredGrid?.step??horizontalGrid.step,bottomExtension,topCorrection,usedBroadGrid,usedPerspectiveGrid:Boolean(individualVerticalSlopes),gridExtent:extent?{start:extent.start,end:extent.end}:null,headerStart,anchoredGrid:anchoredGrid?{matches:anchoredGrid.matches,step:anchoredGrid.step,extentDistance:anchoredGrid.extentDistance,headerRows:anchoredGrid.headerRows}:null,lineExtents:lineExtents.map(item=>item?{start:item.start,end:item.end}:null),horizontalSlope:bestHorizontal.slope,verticalSlope:bestVertical.slope,verticalSlopes:individualVerticalSlopes??verticalLines.map(()=>bestVertical.slope),verticalLines}};
+  return {points:quad,rowStops,rowEdges,columns,confidence,debug:{reason:'ok',rowMatches:rowEdges?.length??anchoredGrid?.matches??horizontalGrid.matches,rowStep:anchoredGrid?.step??horizontalGrid.step,bottomExtension,topCorrection,usedBroadGrid,usedPerspectiveGrid:Boolean(individualVerticalSlopes),usedNumberAnchors:Boolean(rowEdges),numberAnchorScore:numberAnchors?.score??null,numberAnchorCenters:numberAnchors?.centers??null,gridExtent:extent?{start:extent.start,end:extent.end}:null,headerStart,anchoredGrid:anchoredGrid?{matches:anchoredGrid.matches,step:anchoredGrid.step,extentDistance:anchoredGrid.extentDistance,headerRows:anchoredGrid.headerRows}:null,lineExtents:lineExtents.map(item=>item?{start:item.start,end:item.end}:null),horizontalSlope:bestHorizontal.slope,verticalSlope:bestVertical.slope,verticalSlopes:resolvedVerticalSlopes,verticalLines}};
 }
 
 export function detectTargetGrid(imageData){
