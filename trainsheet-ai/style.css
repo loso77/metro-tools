@@ -176,3 +176,16 @@ tr.high-risk{background:#ffe4e6!important}
 }
 
 #debugModelBtn{margin-top:8px}
+
+/* V2.6.0：原 AI / 豆包 AI 手动选择 */
+.provider-picker{margin-top:14px;padding:12px;border:1px solid #dbe4f0;border-radius:15px;background:#f8fafc}
+.provider-picker-title{font-size:13px;font-weight:800;color:#344054;margin-bottom:8px}
+.provider-options{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.provider-options label{position:relative;display:block;cursor:pointer}
+.provider-options input{position:absolute;opacity:0;pointer-events:none}
+.provider-options span{display:flex;align-items:center;justify-content:center;min-height:43px;border:1px solid #cfd8e5;border-radius:12px;background:#fff;color:#344054;font-weight:800;transition:.15s ease}
+.provider-options input:checked+span{border-color:#2563eb;background:#eaf2ff;color:#1d4ed8;box-shadow:0 0 0 2px #2563eb1f}
+.provider-options input:focus-visible+span{outline:3px solid #93c5fd;outline-offset:2px}
+.provider-picker .hint{margin:8px 2px 0}
+.provider-picker .provider-warning{color:#b42318;font-weight:700}
+.compare-workspace.has-results .provider-picker{display:none}

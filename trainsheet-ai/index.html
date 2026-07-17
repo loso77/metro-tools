@@ -58,6 +58,15 @@
         <div><h2>原照片</h2><p class="hint">识别后与结果并排显示。左侧照片可独立双指缩放和拖动，右侧表格不会跟着缩放。</p></div>
       </div>
 
+      <div class="provider-picker" aria-label="识别模型">
+        <div class="provider-picker-title">识别模型</div>
+        <div class="provider-options">
+          <label><input type="radio" name="modelProvider" value="gemini" checked><span>原 AI</span></label>
+          <label><input type="radio" name="modelProvider" value="doubao"><span>豆包 AI</span></label>
+        </div>
+        <p id="providerHint" class="hint">每次只调用所选模型；人工改正和下载方式不变。</p>
+      </div>
+
       <label class="upload">
         选择或拍摄车表
         <input id="imageInput" type="file" accept="image/jpeg,image/png,image/webp">
@@ -101,7 +110,7 @@
     </section>
   </div>
 
-  <footer>V2.5.8 · 大模型连接诊断</footer>
+  <footer>V2.6.0 · 原 AI / 豆包 AI 手动选择</footer>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script src="app.js"></script>
