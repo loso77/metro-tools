@@ -22,7 +22,8 @@ function updateProviderHint(availability){
   if(availability)providerAvailability=availability;
   if(!E.providerHint)return;
   const provider=selectedProvider();
-  if(availability&&availability[provider]===false){E.providerHint.textContent=`${providerLabel(provider)} 尚未在后端配置，请先完成 Cloudflare 环境变量设置。`;E.providerHint.classList.add('provider-warning');return}
+  const available=availability||providerAvailability;
+  if(available&&available[provider]===false){E.providerHint.textContent=`${providerLabel(provider)} 尚未在后端配置，请先完成 Cloudflare 环境变量设置。`;E.providerHint.classList.add('provider-warning');return}
   const other=provider==='doubao'?'gemini':'doubao';
   const reviewText=E.autoReview?.checked?(providerAvailability?.[other]===false?'另一模型未配置，疑难行将保留人工核对。':`疑难行将由${providerLabel(other)}独立复核，不重复计次。`):'自动复核已关闭。';
   E.providerHint.textContent=`主识别：${providerLabel(provider)}。${reviewText}`;
