@@ -193,6 +193,9 @@ tr.high-risk{background:#ffe4e6!important}
 /* V2.7.0：快速主识别 + 疑难行自动复核 */
 .review-toggle{display:flex;align-items:center;gap:9px;margin-top:10px;padding:9px 10px;border-radius:11px;background:#eef4ff;color:#344054;font-size:13px;font-weight:700;cursor:pointer}
 .review-toggle input{width:18px;height:18px;accent-color:#2563eb;flex:0 0 auto}
+.experimental-mode{margin-top:9px;border-top:1px solid #e5eaf1;padding-top:8px}
+.experimental-mode summary{cursor:pointer;color:#667085;font-size:13px;font-weight:700;list-style-position:inside}
+.experimental-mode .review-toggle{background:#fff7ed;color:#9a3412}
 .reviewing-row{background:#eff6ff}
 .review-agreed{background:#ecfdf3}
 .review-badge{display:block;margin-top:3px;font-size:9px;line-height:1.15;font-weight:800;color:#067647}
