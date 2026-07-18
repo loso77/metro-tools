@@ -44,6 +44,7 @@ function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;',
 function cloneRows(value=rows){return JSON.parse(JSON.stringify(value))}
 function alternateProvider(provider){return provider==='doubao'?'gemini':'doubao'}
 function reviewConfig(tableNos){const wanted=new Set(tableNos.map(Number));return{entries:sheetConfig.entries.filter(x=>wanted.has(x.table_no)).map(x=>({...x})),train_number:{...sheetConfig.train_number,unique:true},track_unique:true}}
+function splitReviewBatches(tableNos,size=3){const batches=[];for(let i=0;i<tableNos.length;i+=size)batches.push(tableNos.slice(i,i+size));return batches}
 function retryableModelError(error){return [502,503,504].includes(Number(error?.status))}
 function revalidateRows(){
   const trainMap=new Map(),trackMap=new Map(),min=sheetConfig.train_number.min,max=sheetConfig.train_number.max;
@@ -53,7 +54,7 @@ function revalidateRows(){
     if(!r.train_number)reasons.push('车号为空');
     else if(!/^\d{3}$/.test(r.train_number)||n<min||n>max)reasons.push(`车号不在${String(min).padStart(3,'0')}—${String(max).padStart(3,'0')}范围内`);
     if(!r.track_name)reasons.push('股道为空');
-    if(r.review_status!=='agreed'){
+    if(!['agreed','corrected'].includes(r.review_status)){
       if(r.train_modified)reasons.push('车号存在划掉或重写');
       if(r.track_modified)reasons.push('股道存在划掉或重写');
       if(r.ambiguity)reasons.push('模型认为最终值仍不确定');
@@ -74,10 +75,20 @@ function mergeReview(reviewRows,provider,tableNos){
     if(!selected.has(primary.table_no))return;
     const second=secondary.get(primary.table_no);
     if(!second){primary.review_status='failed';primary.review_reasons=[...(primary.review_reasons||[]),'自动复核失败：未返回该表号'];return}
-    const secondTrain=String(second.train_number??'').trim(),secondTrack=normalizeTrackName(second.track_name);
-    const certain=Boolean(secondTrain&&secondTrack&&!second.ambiguity&&Number(second.confidence)>=.75);
-    if(certain&&secondTrain===primary.train_number&&secondTrack===primary.track_name){
-      primary.review_status='agreed';primary.review_candidates=null;primary.ambiguity=false;primary.confidence=Math.max(primary.confidence,Number(second.confidence)||0);
+    const secondTrain=String(second.train_number??'').trim(),secondTrack=normalizeTrackName(second.track_name),secondOldTrain=String(second.old_train_number??'').trim(),secondOldTrack=normalizeTrackName(second.old_track_name);
+    const confidence=Number(second.confidence)||0,certain=Boolean(secondTrain&&secondTrack&&!second.ambiguity&&confidence>=.75),correctionCertain=confidence>=.88;
+    const trainDiff=secondTrain!==primary.train_number,trackDiff=secondTrack!==primary.track_name;
+    const trainCorrection=trainDiff&&correctionCertain&&Boolean(second.train_modified)&&secondOldTrain===primary.train_number;
+    const trackCorrection=trackDiff&&correctionCertain&&Boolean(second.track_modified)&&secondOldTrack===primary.track_name;
+    const canResolve=certain&&(!trainDiff||trainCorrection)&&(!trackDiff||trackCorrection);
+    if(canResolve){
+      if(trainCorrection)primary.train_number=secondTrain;
+      if(trackCorrection)primary.track_name=secondTrack;
+      if(secondOldTrain)primary.old_train_number=secondOldTrain;
+      if(secondOldTrack)primary.old_track_name=secondOldTrack;
+      primary.train_modified=Boolean(primary.train_modified||second.train_modified);
+      primary.track_modified=Boolean(primary.track_modified||second.track_modified);
+      primary.review_status=trainCorrection||trackCorrection?'corrected':'agreed';primary.review_candidates=null;primary.ambiguity=false;primary.confidence=Math.max(primary.confidence,Number(second.confidence)||0);
     }else if(secondTrain||secondTrack){
       primary.review_status='disagreed';primary.review_candidates={provider,primary:{train_number:primary.train_number,track_name:primary.track_name},secondary:{train_number:secondTrain,track_name:secondTrack}};primary.review_reasons=[...(primary.review_reasons||[]),'双模型结果不一致'];
     }else{
@@ -88,7 +99,7 @@ function mergeReview(reviewRows,provider,tableNos){
 }
 function markReviewFailure(tableNos,message){const selected=new Set(tableNos.map(Number));rows.forEach(r=>{if(selected.has(r.table_no)){r.review_status='failed';r.review_reasons=[...(r.review_reasons||[]),`自动复核失败：${message}`]}});revalidateRows()}
 function setCompareMode(on){E.compareWorkspace.classList.toggle('has-results',on);document.querySelector('.app').classList.toggle('compare-active',on)}
-function render(){E.resultBody.innerHTML='';let n=0,modified=0,conflicts=0,agreed=0;rows.forEach((r,i)=>{const empty=!r.train_number||!r.track_name,review=Boolean(r.needs_review)||empty;if(review)n++;if(r.review_status==='agreed')agreed++;if(r.train_modified||r.track_modified)modified++;if((r.review_reasons||[]).some(x=>x.includes('重复')))conflicts++;const tr=document.createElement('tr');if(review)tr.classList.add('review');if(r.review_status==='pending')tr.classList.add('reviewing-row');if(r.review_status==='agreed')tr.classList.add('review-agreed');if(r.ambiguity)tr.classList.add('high-risk');if(empty)tr.classList.add('empty');const reasons=(r.review_reasons||[]).join('；')||r.note||'';if(reasons)tr.title=`表号${r.table_no}：${reasons}`;let badge=review?'<span class="row-alert">需核对</span>':'';if(r.review_status==='pending')badge='<span class="review-badge pending">自动复核中</span>';if(r.review_status==='agreed')badge='<span class="review-badge">双模型一致</span>';if(r.review_status==='disagreed')badge='<span class="review-badge disagreed">双模型不一致</span>';if(r.review_status==='failed')badge='<span class="review-badge disagreed">复核失败</span>';if(r.review_status==='uncertain')badge='<span class="review-badge disagreed">复核仍不确定</span>';let candidates='';if(r.review_candidates?.secondary){const c=r.review_candidates.secondary;candidates=`<span class="review-candidates">${esc(providerLabel(r.review_candidates.provider))}：${esc(c.train_number||'空')} / ${esc(c.track_name||'空')}</span>`}const locked=reviewing||(!editAllMode&&!review);tr.innerHTML=`<td class="table-number">${esc(r.table_no)}</td><td class="fixed-time">${esc(r.time)}${badge}${candidates}</td><td><input aria-label="表号${r.table_no}车号" data-i="${i}" data-k="train_number" value="${esc(r.train_number)}" placeholder="空" ${locked?'readonly':''}></td><td><input aria-label="表号${r.table_no}股道" data-i="${i}" data-k="track_name" value="${esc(r.track_name)}" placeholder="空" ${locked?'readonly':''}></td>`;if(locked)tr.classList.add('locked-row');E.resultBody.appendChild(tr)});const phase=reviewing?'正在复核疑难行，结果暂时锁定；':agreed?`${agreed}行已获双模型一致确认；`:'';E.summary.textContent=`${rows.length}条记录，${n}行需要人工确认；${phase}检测到${modified}行涂改，${conflicts}行涉及重复冲突。黄色行可直接修改；也可点击“编辑全部”修改任何结果。`;E.editAllBtn.disabled=reviewing;E.xlsxBtn.disabled=reviewing;E.editAllBtn.textContent=editAllMode?'完成全部编辑':'编辑全部车号/股道';E.editAllBtn.classList.toggle('active',editAllMode);E.resultCard.classList.remove('hidden');setCompareMode(true);if(!reviewing)requestAnimationFrame(()=>E.compareWorkspace.scrollIntoView({behavior:'smooth',block:'start'}))}
+function render(){E.resultBody.innerHTML='';let n=0,modified=0,conflicts=0,verified=0;rows.forEach((r,i)=>{const empty=!r.train_number||!r.track_name,review=Boolean(r.needs_review)||empty;if(review)n++;if(['agreed','corrected'].includes(r.review_status))verified++;if(r.train_modified||r.track_modified)modified++;if((r.review_reasons||[]).some(x=>x.includes('重复')))conflicts++;const tr=document.createElement('tr');if(review)tr.classList.add('review');if(r.review_status==='pending')tr.classList.add('reviewing-row');if(['agreed','corrected'].includes(r.review_status))tr.classList.add('review-agreed');if(r.ambiguity)tr.classList.add('high-risk');if(empty)tr.classList.add('empty');const reasons=(r.review_reasons||[]).join('；')||r.note||'';if(reasons)tr.title=`表号${r.table_no}：${reasons}`;let badge=review?'<span class="row-alert">需核对</span>':'';if(r.review_status==='pending')badge='<span class="review-badge pending">自动复核中</span>';if(r.review_status==='agreed')badge='<span class="review-badge">双模型一致</span>';if(r.review_status==='corrected')badge='<span class="review-badge">复核已更正</span>';if(r.review_status==='disagreed')badge='<span class="review-badge disagreed">双模型不一致</span>';if(r.review_status==='failed')badge='<span class="review-badge disagreed">复核失败</span>';if(r.review_status==='uncertain')badge='<span class="review-badge disagreed">复核仍不确定</span>';let candidates='';if(r.review_candidates?.secondary){const c=r.review_candidates.secondary;candidates=`<span class="review-candidates">${esc(providerLabel(r.review_candidates.provider))}：${esc(c.train_number||'空')} / ${esc(c.track_name||'空')}</span>`}const locked=reviewing||(!editAllMode&&!review);tr.innerHTML=`<td class="table-number">${esc(r.table_no)}</td><td class="fixed-time">${esc(r.time)}${badge}${candidates}</td><td><input aria-label="表号${r.table_no}车号" data-i="${i}" data-k="train_number" value="${esc(r.train_number)}" placeholder="空" ${locked?'readonly':''}></td><td><input aria-label="表号${r.table_no}股道" data-i="${i}" data-k="track_name" value="${esc(r.track_name)}" placeholder="空" ${locked?'readonly':''}></td>`;if(locked)tr.classList.add('locked-row');E.resultBody.appendChild(tr)});const phase=reviewing?'正在分批复核疑难行，结果暂时锁定；':verified?`${verified}行已完成双模型复核；`:'';E.summary.textContent=`${rows.length}条记录，${n}行需要人工确认；${phase}检测到${modified}行涂改，${conflicts}行涉及重复冲突。黄色行可直接修改；也可点击“编辑全部”修改任何结果。`;E.editAllBtn.disabled=reviewing;E.xlsxBtn.disabled=reviewing;E.editAllBtn.textContent=editAllMode?'完成全部编辑':'编辑全部车号/股道';E.editAllBtn.classList.toggle('active',editAllMode);E.resultCard.classList.remove('hidden');setCompareMode(true);if(!reviewing)requestAnimationFrame(()=>E.compareWorkspace.scrollIntoView({behavior:'smooth',block:'start'}))}
 
 async function debugModel(){
   if(!state.token){status(E.authStatus,'请先完成设备授权。','error');return}
@@ -152,13 +163,17 @@ async function recognize(){
     const selected=new Set(reviewInfo.table_nos.map(Number));
     rows.forEach(r=>{if(selected.has(r.table_no))r.review_status='pending'});
     reviewing=true;render();
-    phase=`${providerLabel(reviewInfo.provider)}正在复核 ${reviewInfo.table_nos.length} 个疑难表号`;
+    const batches=splitReviewBatches(reviewInfo.table_nos,Math.max(1,Math.min(3,Number(reviewInfo.batch_size)||3)));
+    phase=`${providerLabel(reviewInfo.provider)}正在分${batches.length}批复核 ${reviewInfo.table_nos.length} 个疑难表号`;
     status(E.status,`${primaryExtra}，结果已显示；${phase}。`);
     try{
-      const reviewResult=await api('/recognize',{method:'POST',headers:headers(),body:JSON.stringify({mode:'review',review_token:reviewInfo.token,image,config:reviewConfig(reviewInfo.table_nos),provider:reviewInfo.provider})});
-      mergeReview(reviewResult.rows,reviewInfo.provider,reviewInfo.table_nos);showQuota(reviewResult.usage);
+      const reviewStarted=Date.now();
+      const settled=await Promise.allSettled(batches.map(batch=>api('/recognize',{method:'POST',headers:headers(),body:JSON.stringify({mode:'review',review_token:reviewInfo.token,image,config:reviewConfig(batch),provider:reviewInfo.provider})})));
+      let succeeded=0,failed=0;
+      settled.forEach((result,i)=>{const batch=batches[i];if(result.status==='fulfilled'){succeeded++;mergeReview(result.value.rows,reviewInfo.provider,batch);showQuota(result.value.usage)}else{failed++;markReviewFailure(batch,result.reason?.message||'请求失败')}});
       const limited=Number(reviewInfo.total_flagged)>reviewInfo.table_nos.length?`已优先复核最疑难的${reviewInfo.table_nos.length}行，其余疑难行保留人工确认。`:'';
-      status(E.status,`识别与自动复核完成：主识别${primaryExtra}，复核耗时${Math.round((reviewResult.elapsed_ms||0)/1000)}秒。${limited}`,'success');
+      const elapsed=Math.round((Date.now()-reviewStarted)/1000),summary=`${succeeded}/${batches.length}批完成`;
+      status(E.status,`主识别${primaryExtra}；分批复核${summary}，耗时${elapsed}秒。${failed?'失败批次已保留人工核对。':''}${limited}`,failed?'error':'success');
     }catch(reviewError){
       markReviewFailure(reviewInfo.table_nos,reviewError.message);
       status(E.status,`主识别已完成（${primaryExtra}）；自动复核未完成：${reviewError.message}。第一模型结果已保留，可手工核对。`,'error');
