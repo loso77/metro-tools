@@ -58,14 +58,17 @@
         <div><h2>原照片</h2><p class="hint">识别后与结果并排显示。左侧照片可独立双指缩放和拖动，右侧表格不会跟着缩放。</p></div>
       </div>
 
-      <div class="provider-picker" aria-label="识别模型">
-        <div class="provider-picker-title">识别模型</div>
+      <div class="provider-picker" aria-label="识别模式">
+        <div class="provider-picker-title">识别模式</div>
         <div class="provider-options">
-          <label><input type="radio" name="modelProvider" value="gemini" checked><span>原 AI</span></label>
-          <label><input type="radio" name="modelProvider" value="doubao"><span>豆包 AI</span></label>
+          <label><input type="radio" name="recognitionMode" value="smart" checked><span>智能识别（推荐）</span></label>
+          <label><input type="radio" name="recognitionMode" value="fast"><span>快速识别</span></label>
         </div>
-        <label class="review-toggle"><input id="autoReview" type="checkbox" checked><span>自动复核疑难行（推荐，不重复计次）</span></label>
-        <p id="providerHint" class="hint">先调用所选模型；只把疑难行交给另一模型复核。</p>
+        <details class="experimental-mode">
+          <summary>高级 / 实验设置</summary>
+          <label class="review-toggle"><input type="radio" name="recognitionMode" value="gemini"><span>Gemini 整表主识别（可能超时）</span></label>
+        </details>
+        <p id="providerHint" class="hint">智能识别：豆包主识别，Gemini分批复核疑难行。</p>
       </div>
 
       <label class="upload">
@@ -111,7 +114,7 @@
     </section>
   </div>
 
-  <footer>V2.7.1 · 快速识别 / 疑难行分批纠错复核</footer>
+  <footer>V2.7.2 · 智能识别 / 快速识别 / 实验模式</footer>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script src="app.js"></script>
