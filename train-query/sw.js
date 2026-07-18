@@ -1,4 +1,4 @@
-const CACHE = 'pr2607-network-fallback-v1';
+const CACHE = 'pr2607-network-fallback-v2-no-time-swipe';
 const APP_SHELL = ['./index.html', './manifest.json'];
 const NETWORK_TIMEOUT_MS = 1500;
 const INDEX_URL = new URL('./index.html', self.registration.scope).href;
