@@ -1,4 +1,4 @@
-const CACHE_NAME = "metro-tools-v1";
+const CACHE_NAME = "metro-tools-v2-east-only-export";
 const APP_ASSETS = [
   "./",
   "./index.html",

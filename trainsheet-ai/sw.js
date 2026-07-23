@@ -1,4 +1,4 @@
-const CACHE_NAME = "trainsheet-v2.7.2-recognition-modes";
+const CACHE_NAME = "trainsheet-v2.7.3-east-only-export";
 const APP_FILES = ["./","./index.html","./style.css","./app.js","./manifest.json","./template.xlsx"];
 self.addEventListener("install",event=>{self.skipWaiting();event.waitUntil(caches.open(CACHE_NAME).then(cache=>cache.addAll(APP_FILES)))});
 self.addEventListener("activate",event=>{event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key.startsWith("trainsheet-")&&key!==CACHE_NAME).map(key=>caches.delete(key)))).then(()=>self.clients.claim()))});
