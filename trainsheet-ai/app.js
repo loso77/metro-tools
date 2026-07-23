@@ -15,9 +15,9 @@ function loadConfig(){try{return sanitizeLocalConfig(JSON.parse(localStorage.get
 let sheetConfig=loadConfig(),draftConfig=cloneConfig(sheetConfig);
 function configEntries(){return sheetConfig.entries}
 function apiConfig(){return {entries:sheetConfig.entries.map(x=>({table_no:x.table_no,time:x.time})),train_number:{...sheetConfig.train_number,unique:true},track_unique:true}}
-const state={get base(){return(localStorage.getItem('ts_worker')||'').replace(/\/+$/,'')},get token(){return localStorage.getItem('ts_token')||''},get recognitionMode(){const v=localStorage.getItem('ts_recognition_mode');return v==='gemini'?'qwen':['smart','fast','qwen'].includes(v)?v:'smart'},setToken(v){v?localStorage.setItem('ts_token',v):localStorage.removeItem('ts_token')},setRecognitionMode(v){localStorage.setItem('ts_recognition_mode',['smart','fast','qwen'].includes(v)?v:'smart')}};
+const state={get base(){return(localStorage.getItem('ts_worker')||'').replace(/\/+$/,'')},get token(){return localStorage.getItem('ts_token')||''},get recognitionMode(){const v=localStorage.getItem('ts_recognition_mode');return['smart','fast'].includes(v)?v:'smart'},setToken(v){v?localStorage.setItem('ts_token',v):localStorage.removeItem('ts_token')},setRecognitionMode(v){localStorage.setItem('ts_recognition_mode',['smart','fast'].includes(v)?v:'smart')}};
 function selectedMode(){return document.querySelector('input[name="recognitionMode"]:checked')?.value||state.recognitionMode}
-function selectedProvider(){return selectedMode()==='qwen'?'qwen':'doubao'}
+function selectedProvider(){return'doubao'}
 function autoReviewEnabled(){return selectedMode()!=='fast'}
 function providerLabel(provider=selectedProvider()){return provider==='doubao'?'豆包 AI':provider==='qwen'?'千问 AI':'大模型'}
 function updateProviderHint(availability){
@@ -28,7 +28,6 @@ function updateProviderHint(availability){
   const available=availability||providerAvailability;
   if(available&&available[provider]===false){E.providerHint.textContent=`${providerLabel(provider)} 尚未在后端配置，请先完成 Cloudflare 环境变量设置。`;E.providerHint.classList.add('provider-warning');return}
   if(mode==='fast')E.providerHint.textContent='快速识别：只使用豆包 AI，不自动复核，速度最快。';
-  else if(mode==='qwen')E.providerHint.textContent=providerAvailability?.doubao===false?'实验模式：千问 AI 整表主识别；豆包未配置，疑难行将保留人工核对。':'实验模式：千问 AI 整表主识别，豆包 AI 复核疑难行。';
   else E.providerHint.textContent=providerAvailability?.qwen===false?'智能识别：豆包 AI 主识别；千问未配置，疑难行将保留人工核对。':'智能识别：豆包 AI 主识别，千问 AI 分批复核疑难行。';
   E.providerHint.classList.remove('provider-warning');
 }
@@ -45,10 +44,8 @@ function normalizeTrackName(value){let s=String(value??'').trim().toUpperCase();
 function norm(input){const entries=configEntries(),allowed=new Set(entries.map(x=>x.table_no)),times=new Map(entries.map(x=>[x.table_no,x.time])),m=new Map();(Array.isArray(input)?input:[]).forEach(x=>{const n=Number(x.table_no);if(!allowed.has(n)||m.has(n))return;m.set(n,{table_no:n,time:times.get(n)||'',train_number:String(x.train_number??'').trim(),track_name:normalizeTrackName(x.track_name),old_train_number:String(x.old_train_number??'').trim(),old_track_name:normalizeTrackName(x.old_track_name),train_modified:Boolean(x.train_modified),track_modified:Boolean(x.track_modified),ambiguity:Boolean(x.ambiguity),needs_review:Boolean(x.needs_review),review_reasons:Array.isArray(x.review_reasons)?x.review_reasons.map(String):[],review_status:String(x.review_status||''),review_candidates:x.review_candidates||null,note:String(x.note??'').trim(),confidence:Math.max(0,Math.min(1,Number(x.confidence)||0))})});return entries.map(e=>m.get(e.table_no)||{table_no:e.table_no,time:e.time,train_number:'',track_name:'',old_train_number:'',old_track_name:'',train_modified:false,track_modified:false,ambiguity:true,needs_review:true,review_reasons:['模型未返回该表号'],review_status:'',review_candidates:null,note:'模型未返回该表号',confidence:0})}
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}
 function cloneRows(value=rows){return JSON.parse(JSON.stringify(value))}
-function alternateProvider(provider){return provider==='doubao'?'qwen':'doubao'}
 function reviewConfig(tableNos){const wanted=new Set(tableNos.map(Number));return{entries:sheetConfig.entries.filter(x=>wanted.has(x.table_no)).map(x=>({...x})),train_number:{...sheetConfig.train_number,unique:true},track_unique:true}}
 function splitReviewBatches(tableNos,size=3){const batches=[];for(let i=0;i<tableNos.length;i+=size)batches.push(tableNos.slice(i,i+size));return batches}
-function retryableModelError(error){return [502,503,504].includes(Number(error?.status))}
 function revalidateRows(){
   const trainMap=new Map(),trackMap=new Map(),min=sheetConfig.train_number.min,max=sheetConfig.train_number.max;
   rows.forEach(r=>{
@@ -128,7 +125,6 @@ async function debugModel(){
 }
 async function recognize(){
   if(!file)return;
-  const mode=selectedMode();
   const chosen=selectedProvider();
   E.recognizeBtn.disabled=true;E.progress.classList.remove('hidden');
   let timer=null,phase=`${providerLabel(chosen)}正在识别当前配置的 ${sheetConfig.entries.length} 个表号`;
@@ -137,22 +133,8 @@ async function recognize(){
     const image=await compress(file),start=Date.now();
     timer=setInterval(()=>status(E.status,`${phase}……已等待 ${Math.floor((Date.now()-start)/1000)} 秒`),1000);
     status(E.status,`${phase}……已等待 0 秒`);
-    let primaryProvider=chosen,d;
-    try{
-      d=await api('/recognize',{method:'POST',headers:headers(),body:JSON.stringify({image,config:apiConfig(),provider:primaryProvider})});
-    }catch(firstError){
-      const fallback=alternateProvider(primaryProvider);
-      if(mode==='fast'||!retryableModelError(firstError)||providerAvailability?.[fallback]===false)throw firstError;
-      phase=`${providerLabel(primaryProvider)}未完成，正在改用${providerLabel(fallback)}`;
-      status(E.status,`${firstError.message} 正在自动改用${providerLabel(fallback)}，失败请求不计次数。`);
-      primaryProvider=fallback;
-      try{
-        d=await api('/recognize',{method:'POST',headers:headers(),body:JSON.stringify({image,config:apiConfig(),provider:primaryProvider})});
-      }catch(secondError){
-        secondError.message=`${providerLabel(chosen)}未完成；${providerLabel(fallback)}也未完成：${secondError.message}`;
-        throw secondError;
-      }
-    }
+    const primaryProvider=chosen;
+    const d=await api('/recognize',{method:'POST',headers:headers(),body:JSON.stringify({image,config:apiConfig(),provider:primaryProvider})});
 
     rows=norm(d.rows);revalidateRows();showQuota(d.usage);
     const primaryExtra=`${providerLabel(primaryProvider)}耗时${Math.round((d.elapsed_ms||0)/1000)}秒`;
@@ -431,4 +413,4 @@ if(photoStage){
 
 if(E.resetZoomBtn) E.resetZoomBtn.onclick=resetPhotoZoom;
 
-E.settingsBtn.onclick=()=>{const opening=E.settingsPanel.classList.contains('hidden');E.settingsPanel.classList.toggle('hidden');if(opening)openConfigEditor()};E.closeSettings.onclick=()=>E.settingsPanel.classList.add('hidden');E.saveWorker.onclick=()=>{localStorage.setItem('ts_worker',E.workerUrl.value.trim().replace(/\/+$/,''));check()};E.debugModelBtn.onclick=debugModel;E.logoutBtn.onclick=()=>{state.setToken('');authUI(false);status(E.authStatus,'本机令牌已删除。','success')};E.authorizeBtn.onclick=authorize;E.imageInput.onchange=()=>{const f=E.imageInput.files?.[0];if(!f)return;if(!/^image\/(jpeg|png|webp)$/.test(f.type))return status(E.status,'只支持JPG、PNG或WebP。','error');if(f.size>12*1024*1024)return status(E.status,'原图不能超过12MB。','error');file=f;resetPhotoZoom();E.preview.src=URL.createObjectURL(f);E.previewWrap.classList.remove('hidden');E.recognizeBtn.disabled=false;status(E.status,'照片已选择。')};E.removeImage.onclick=resetImage;E.recognizeBtn.onclick=recognize;E.resultBody.oninput=e=>{const x=e.target.closest('input[data-i]');if(x){const i=Number(x.dataset.i),k=x.dataset.k;rows[i][k]=k==='track_name'?normalizeTrackName(x.value):x.value.trim();if(k==='track_name'&&document.activeElement!==x)x.value=rows[i][k]}};E.resultBody.onchange=e=>{const x=e.target.closest('input[data-i]');if(x&&x.dataset.k==='track_name'){rows[Number(x.dataset.i)].track_name=normalizeTrackName(x.value);x.value=rows[Number(x.dataset.i)].track_name}};E.editAllBtn.onclick=()=>{if(reviewing)return;editAllMode=!editAllMode;render();status(E.status,editAllMode?'已开放全部车号和股道，可逐项修改。':'已结束全部编辑；黄色行仍可继续修改。','success')};E.clearResult.onclick=()=>{rows=[];originalRows=[];editAllMode=false;reviewing=false;E.resultCard.classList.add('hidden');setCompareMode(false)};E.copyBtn.onclick=async()=>{const t=[['表号','车号','时间','股道'],...rows.map(r=>[r.table_no,r.train_number,r.time,r.track_name])].map(x=>x.join('\t')).join('\n');try{await navigator.clipboard.writeText(t);status(E.status,'已复制，可粘贴到WPS或Excel。','success')}catch{status(E.status,'复制失败，请导出XLSX。','error')}};E.csvBtn.onclick=exportCsv;E.xlsxBtn.onclick=exportXlsx;document.querySelectorAll('input[name="recognitionMode"]').forEach(input=>{input.checked=input.value===state.recognitionMode;input.addEventListener('change',()=>{if(!input.checked)return;state.setRecognitionMode(input.value);updateProviderHint();const message=input.value==='smart'?'已选择智能识别：豆包主识别，千问复核。':input.value==='fast'?'已选择快速识别：仅使用豆包。':'已选择实验模式：千问整表主识别。';status(E.status,message,'success')})});updateProviderHint();E.workerUrl.value=state.base;openConfigEditor();authUI(!!state.token);check();if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+E.settingsBtn.onclick=()=>{const opening=E.settingsPanel.classList.contains('hidden');E.settingsPanel.classList.toggle('hidden');if(opening)openConfigEditor()};E.closeSettings.onclick=()=>E.settingsPanel.classList.add('hidden');E.saveWorker.onclick=()=>{localStorage.setItem('ts_worker',E.workerUrl.value.trim().replace(/\/+$/,''));check()};E.debugModelBtn.onclick=debugModel;E.logoutBtn.onclick=()=>{state.setToken('');authUI(false);status(E.authStatus,'本机令牌已删除。','success')};E.authorizeBtn.onclick=authorize;E.imageInput.onchange=()=>{const f=E.imageInput.files?.[0];if(!f)return;if(!/^image\/(jpeg|png|webp)$/.test(f.type))return status(E.status,'只支持JPG、PNG或WebP。','error');if(f.size>12*1024*1024)return status(E.status,'原图不能超过12MB。','error');file=f;resetPhotoZoom();E.preview.src=URL.createObjectURL(f);E.previewWrap.classList.remove('hidden');E.recognizeBtn.disabled=false;status(E.status,'照片已选择。')};E.removeImage.onclick=resetImage;E.recognizeBtn.onclick=recognize;E.resultBody.oninput=e=>{const x=e.target.closest('input[data-i]');if(x){const i=Number(x.dataset.i),k=x.dataset.k;rows[i][k]=k==='track_name'?normalizeTrackName(x.value):x.value.trim();if(k==='track_name'&&document.activeElement!==x)x.value=rows[i][k]}};E.resultBody.onchange=e=>{const x=e.target.closest('input[data-i]');if(x&&x.dataset.k==='track_name'){rows[Number(x.dataset.i)].track_name=normalizeTrackName(x.value);x.value=rows[Number(x.dataset.i)].track_name}};E.editAllBtn.onclick=()=>{if(reviewing)return;editAllMode=!editAllMode;render();status(E.status,editAllMode?'已开放全部车号和股道，可逐项修改。':'已结束全部编辑；黄色行仍可继续修改。','success')};E.clearResult.onclick=()=>{rows=[];originalRows=[];editAllMode=false;reviewing=false;E.resultCard.classList.add('hidden');setCompareMode(false)};E.copyBtn.onclick=async()=>{const t=[['表号','车号','时间','股道'],...rows.map(r=>[r.table_no,r.train_number,r.time,r.track_name])].map(x=>x.join('\t')).join('\n');try{await navigator.clipboard.writeText(t);status(E.status,'已复制，可粘贴到WPS或Excel。','success')}catch{status(E.status,'复制失败，请导出XLSX。','error')}};E.csvBtn.onclick=exportCsv;E.xlsxBtn.onclick=exportXlsx;document.querySelectorAll('input[name="recognitionMode"]').forEach(input=>{input.checked=input.value===state.recognitionMode;input.addEventListener('change',()=>{if(!input.checked)return;state.setRecognitionMode(input.value);updateProviderHint();const message=input.value==='smart'?'已选择智能识别：豆包主识别，千问复核。':'已选择快速识别：仅使用豆包。';status(E.status,message,'success')})});updateProviderHint();E.workerUrl.value=state.base;openConfigEditor();authUI(!!state.token);check();if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
