@@ -1,4 +1,4 @@
-const CACHE_NAME = "metro-tools-v2.7.4-qwen-review";
+const CACHE_NAME = "metro-tools-v2.7.5-review-only";
 const APP_ASSETS = [
   "./",
   "./index.html",
