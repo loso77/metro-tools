@@ -28,7 +28,7 @@ function updateProviderHint(availability){
   const available=availability||providerAvailability;
   if(available&&available[provider]===false){E.providerHint.textContent=`${providerLabel(provider)} 尚未在后端配置，请先完成 Cloudflare 环境变量设置。`;E.providerHint.classList.add('provider-warning');return}
   if(mode==='fast')E.providerHint.textContent='快速识别：只使用豆包 AI，不自动复核，速度最快。';
-  else E.providerHint.textContent=providerAvailability?.qwen===false?'智能识别：豆包 AI 主识别；千问未配置，疑难行将保留人工核对。':'智能识别：豆包 AI 主识别，千问 AI 分批复核疑难行。';
+  else E.providerHint.textContent=providerAvailability?.qwen===false?'智能识别：豆包 AI 主识别；千问未配置，疑难行将保留人工核对。':'智能识别：豆包 AI 主识别，千问 AI 使用高清完整照片分批复核疑难行。';
   E.providerHint.classList.remove('provider-warning');
 }
 function status(el,msg,type=''){el.textContent=msg;el.className=`status ${type}`.trim()}
@@ -39,7 +39,8 @@ async function check(){if(!state.base){E.connectionState.textContent='请填写 
 function showQuota(d){if(!d)return;E.quota.textContent=`今日本设备 ${d.device_used}/${d.device_limit} 次；服务总计 ${d.global_used}/${d.global_limit} 次。令牌有效至 ${new Date(d.expires_at*1000).toLocaleDateString()}。`}
 async function authorize(){const code=E.accessCode.value.trim();if(!code)return status(E.authStatus,'请输入设备授权码。','error');E.authorizeBtn.disabled=true;status(E.authStatus,'正在验证……');try{const d=await api('/auth',{method:'POST',headers:headers(false),body:JSON.stringify({code,device_name:navigator.userAgent.slice(0,120)})});state.setToken(d.token);E.accessCode.value='';authUI(true);showQuota(d);status(E.status,'设备已授权，请选择照片。','success')}catch(e){status(E.authStatus,e.message,'error')}finally{E.authorizeBtn.disabled=false}}
 function resetImage(){resetPhotoZoom();file=null;reviewing=false;E.imageInput.value='';E.preview.src='';E.previewWrap.classList.add('hidden');E.recognizeBtn.disabled=true;status(E.status,'请选择照片。')}
-function compress(file,max=1900,quality=.86){return new Promise((res,rej)=>{const img=new Image(),u=URL.createObjectURL(file);img.onload=()=>{let w=img.width,h=img.height,s=Math.min(1,max/Math.max(w,h));w=Math.round(w*s);h=Math.round(h*s);const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);URL.revokeObjectURL(u);res(c.toDataURL('image/jpeg',quality))};img.onerror=()=>{URL.revokeObjectURL(u);rej(new Error('照片读取失败'))};img.src=u})}
+function compress(file,max=1900,quality=.86,maxLength=7200000){return new Promise((res,rej)=>{const img=new Image(),u=URL.createObjectURL(file);img.onload=()=>{let w=img.width,h=img.height,s=Math.min(1,max/Math.max(w,h));w=Math.max(1,Math.round(w*s));h=Math.max(1,Math.round(h*s));let c=document.createElement('canvas');const draw=()=>{c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h)};draw();let q=quality,data=c.toDataURL('image/jpeg',q);while(data.length>maxLength&&q>.66){q=Math.max(.66,q-.06);data=c.toDataURL('image/jpeg',q)}for(let round=0;data.length>maxLength&&round<4;round++){const shrink=Math.max(.65,Math.min(.92,Math.sqrt(maxLength/data.length)*.92));w=Math.max(1,Math.round(w*shrink));h=Math.max(1,Math.round(h*shrink));c=document.createElement('canvas');draw();data=c.toDataURL('image/jpeg',Math.min(q,.8))}URL.revokeObjectURL(u);if(data.length>maxLength)return rej(new Error('照片压缩后仍然过大'));res(data)};img.onerror=()=>{URL.revokeObjectURL(u);rej(new Error('照片读取失败'))};img.src=u})}
+async function imageFingerprint(image){const bytes=new TextEncoder().encode(String(image||'')),digest=new Uint8Array(await crypto.subtle.digest('SHA-256',bytes));return[...digest].slice(0,12).map(x=>x.toString(16).padStart(2,'0')).join('')}
 function normalizeTrackName(value){let s=String(value??'').trim().toUpperCase();s=s.replace(/[→➡➜➝]/g,'').replace(/-?>/g,'').replace(/\s+/g,'').replace(/[，。,.；;:：]/g,'');const c=s.match(/^(\d{1,2})(东|西)$/);if(c)return c[1]+c[2];const a=s.match(/^(\d{1,2})(A|C)$/);if(a)return a[1]+(a[2]==='A'?'东':'西');return s}
 function norm(input){const entries=configEntries(),allowed=new Set(entries.map(x=>x.table_no)),times=new Map(entries.map(x=>[x.table_no,x.time])),m=new Map();(Array.isArray(input)?input:[]).forEach(x=>{const n=Number(x.table_no);if(!allowed.has(n)||m.has(n))return;m.set(n,{table_no:n,time:times.get(n)||'',train_number:String(x.train_number??'').trim(),track_name:normalizeTrackName(x.track_name),old_train_number:String(x.old_train_number??'').trim(),old_track_name:normalizeTrackName(x.old_track_name),train_modified:Boolean(x.train_modified),track_modified:Boolean(x.track_modified),ambiguity:Boolean(x.ambiguity),needs_review:Boolean(x.needs_review),review_reasons:Array.isArray(x.review_reasons)?x.review_reasons.map(String):[],review_status:String(x.review_status||''),review_candidates:x.review_candidates||null,note:String(x.note??'').trim(),confidence:Math.max(0,Math.min(1,Number(x.confidence)||0))})});return entries.map(e=>m.get(e.table_no)||{table_no:e.table_no,time:e.time,train_number:'',track_name:'',old_train_number:'',old_track_name:'',train_modified:false,track_modified:false,ambiguity:true,needs_review:true,review_reasons:['模型未返回该表号'],review_status:'',review_candidates:null,note:'模型未返回该表号',confidence:0})}
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}
@@ -130,11 +131,18 @@ async function recognize(){
   let timer=null,phase=`${providerLabel(chosen)}正在识别当前配置的 ${sheetConfig.entries.length} 个表号`;
   status(E.status,'正在本地压缩照片……');
   try{
-    const image=await compress(file),start=Date.now();
+    const image=await compress(file);
+    let reviewImage=image,reviewImageHash='',reviewImageIsHd=false;
+    if(autoReviewEnabled()){
+      status(E.status,'正在准备高清完整照片，供千问复核疑难行……');
+      try{reviewImage=await compress(file,3000,.9,7200000);reviewImageIsHd=true}catch{reviewImage=image}
+      reviewImageHash=await imageFingerprint(reviewImage);
+    }
+    const start=Date.now();
     timer=setInterval(()=>status(E.status,`${phase}……已等待 ${Math.floor((Date.now()-start)/1000)} 秒`),1000);
     status(E.status,`${phase}……已等待 0 秒`);
     const primaryProvider=chosen;
-    const d=await api('/recognize',{method:'POST',headers:headers(),body:JSON.stringify({image,config:apiConfig(),provider:primaryProvider})});
+    const d=await api('/recognize',{method:'POST',headers:headers(),body:JSON.stringify({image,review_image_hash:reviewImageHash,config:apiConfig(),provider:primaryProvider})});
 
     rows=norm(d.rows);revalidateRows();showQuota(d.usage);
     const primaryExtra=`${providerLabel(primaryProvider)}耗时${Math.round((d.elapsed_ms||0)/1000)}秒`;
@@ -150,11 +158,11 @@ async function recognize(){
     rows.forEach(r=>{if(selected.has(r.table_no))r.review_status='pending'});
     reviewing=true;render();
     const batches=splitReviewBatches(reviewInfo.table_nos,Math.max(1,Math.min(3,Number(reviewInfo.batch_size)||3)));
-    phase=`${providerLabel(reviewInfo.provider)}正在分${batches.length}批复核 ${reviewInfo.table_nos.length} 个疑难表号`;
+    phase=`${providerLabel(reviewInfo.provider)}正在使用${reviewImageIsHd?'高清完整照片':'当前完整照片'}分${batches.length}批复核 ${reviewInfo.table_nos.length} 个疑难表号`;
     status(E.status,`${primaryExtra}，结果已显示；${phase}。`);
     try{
       const reviewStarted=Date.now();
-      const settled=await Promise.allSettled(batches.map(batch=>api('/recognize',{method:'POST',headers:headers(),body:JSON.stringify({mode:'review',review_token:reviewInfo.token,image,config:reviewConfig(batch),provider:reviewInfo.provider})})));
+      const settled=await Promise.allSettled(batches.map(batch=>api('/recognize',{method:'POST',headers:headers(),body:JSON.stringify({mode:'review',review_token:reviewInfo.token,image:reviewImage,config:reviewConfig(batch),provider:reviewInfo.provider})})));
       let succeeded=0,failed=0;
       settled.forEach((result,i)=>{const batch=batches[i];if(result.status==='fulfilled'){succeeded++;mergeReview(result.value.rows,reviewInfo.provider,batch);showQuota(result.value.usage)}else{failed++;markReviewFailure(batch,result.reason?.message||'请求失败')}});
       const limited=Number(reviewInfo.total_flagged)>reviewInfo.table_nos.length?`已优先复核最疑难的${reviewInfo.table_nos.length}行，其余疑难行保留人工确认。`:'';
