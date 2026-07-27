@@ -57,6 +57,17 @@
     }
 
     .brand { display: flex; align-items: center; gap: 12px; }
+    .title-line { display: flex; align-items: center; gap: 7px; }
+    .version-badge {
+      padding: 3px 6px;
+      border-radius: 7px;
+      color: var(--brand-dark);
+      background: var(--brand-soft);
+      font-size: 10px;
+      font-weight: 800;
+      line-height: 1;
+      white-space: nowrap;
+    }
     .logo {
       width: 45px;
       height: 45px;
@@ -307,7 +318,7 @@
     }
 
     /* 手机横屏：查询与结果、编辑与列表分别左右并排，减少上下滚动 */
-    @media (orientation: landscape) and (max-height: 600px) {
+    @media (max-height: 600px) and (min-width: 560px) {
       html, body {
         height: 100%;
         overflow: hidden;
@@ -340,6 +351,7 @@
         font-size: 17px;
       }
       h1 { font-size: 17px; }
+      .version-badge { padding: 3px 5px; font-size: 9px; }
       .subtitle { display: none; }
       .icon-btn {
         width: 34px;
@@ -561,7 +573,10 @@
       <div class="brand">
         <div class="logo">车</div>
         <div>
-          <h1>车组查询</h1>
+          <div class="title-line">
+            <h1>车组查询</h1>
+            <span class="version-badge">V2.7.9</span>
+          </div>
           <div class="subtitle">快速查询车辆段与班组</div>
         </div>
       </div>
@@ -659,7 +674,7 @@
       </div>
     </section>
 
-    <footer>V2.7.8 · 车组查询 · 数据保存在当前设备</footer>
+    <footer>V2.7.9 · 车组查询 · 数据保存在当前设备</footer>
   </main>
   <div class="toast" id="toast" role="status"></div>
 

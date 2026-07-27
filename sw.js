@@ -1,4 +1,4 @@
-const CACHE_NAME = "metro-tools-v2.7.8-group-landscape";
+const CACHE_NAME = "metro-tools-v2.7.9-group-landscape-fix";
 const APP_ASSETS = [
   "./",
   "./index.html",
@@ -16,6 +16,7 @@ const APP_ASSETS = [
   "./trainsheet-ai/sw.js",
   "./trainsheet-ai/template.xlsx",
   "./group-query/",
+  "./group-query/?v=2.7.9",
   "./group-query/index.html",
   "./group-query/manifest.webmanifest",
   "./group-query/icon.svg",
@@ -44,7 +45,7 @@ self.addEventListener("fetch", event => {
   if (url.origin !== self.location.origin || url.pathname.endsWith("/sw.js")) return;
 
   event.respondWith(
-    caches.match(event.request, {ignoreSearch: true}).then(cached => {
+    caches.match(event.request).then(cached => {
       const networkUpdate = fetch(event.request)
         .then(response => {
           if (response.ok && response.type === "basic") {

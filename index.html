@@ -182,14 +182,14 @@
       <div class="loading" id="loading">正在加载工具…</div>
       <iframe class="tool-frame active" id="frame-train-query" src="./train-query/" title="列车查询" allow="clipboard-read; clipboard-write"></iframe>
       <iframe class="tool-frame" id="frame-trainsheet-ai" data-src="./trainsheet-ai/" title="车表识别" allow="camera; clipboard-read; clipboard-write"></iframe>
-      <iframe class="tool-frame" id="frame-group-query" data-src="./group-query/" title="车组查询" allow="clipboard-read; clipboard-write"></iframe>
+      <iframe class="tool-frame" id="frame-group-query" data-src="./group-query/?v=2.7.9" title="车组查询" allow="clipboard-read; clipboard-write"></iframe>
     </section>
   </main>
   <script>
     const TOOLS = {
       "train-query": "./train-query/",
       "trainsheet-ai": "./trainsheet-ai/",
-      "group-query": "./group-query/"
+      "group-query": "./group-query/?v=2.7.9"
     };
     let activeTool = "train-query";
     let offlineReady = Boolean(navigator.serviceWorker && navigator.serviceWorker.controller);
