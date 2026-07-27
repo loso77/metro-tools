@@ -1,5 +1,5 @@
 const $=id=>document.getElementById(id);
-const E={settingsBtn:$('settingsBtn'),settingsPanel:$('settingsPanel'),closeSettings:$('closeSettings'),workerUrl:$('workerUrl'),saveWorker:$('saveWorker'),debugModelBtn:$('debugModelBtn'),connectionState:$('connectionState'),logoutBtn:$('logoutBtn'),authCard:$('authCard'),accessCode:$('accessCode'),authorizeBtn:$('authorizeBtn'),authStatus:$('authStatus'),mainCard:$('mainCard'),providerHint:$('providerHint'),imageInput:$('imageInput'),preview:$('preview'),previewWrap:$('previewWrap'),resetZoomBtn:$('resetZoomBtn'),removeImage:$('removeImage'),recognizeBtn:$('recognizeBtn'),progress:$('progress'),status:$('status'),quota:$('quota'),resultCard:$('resultCard'),summary:$('summary'),resultBody:$('resultBody'),clearResult:$('clearResult'),copyBtn:$('copyBtn'),csvBtn:$('csvBtn'),xlsxBtn:$('xlsxBtn'),xlsxScope:$('xlsxScope'),editAllBtn:$('editAllBtn'),compareWorkspace:$('compareWorkspace'),trainMin:$('trainMin'),trainMax:$('trainMax'),configBody:$('configBody'),configCount:$('configCount'),addConfigRow:$('addConfigRow'),sortConfig:$('sortConfig'),restoreConfig:$('restoreConfig'),saveConfig:$('saveConfig'),configStatus:$('configStatus')};
+const E={settingsBtn:$('settingsBtn'),settingsPanel:$('settingsPanel'),closeSettings:$('closeSettings'),workerUrl:$('workerUrl'),saveWorker:$('saveWorker'),debugModelBtn:$('debugModelBtn'),connectionState:$('connectionState'),logoutBtn:$('logoutBtn'),authCard:$('authCard'),accessCode:$('accessCode'),authorizeBtn:$('authorizeBtn'),authStatus:$('authStatus'),mainCard:$('mainCard'),providerHint:$('providerHint'),imageInput:$('imageInput'),preview:$('preview'),previewWrap:$('previewWrap'),focusTableBtn:$('focusTableBtn'),resetZoomBtn:$('resetZoomBtn'),removeImage:$('removeImage'),recognizeBtn:$('recognizeBtn'),progress:$('progress'),status:$('status'),quota:$('quota'),resultCard:$('resultCard'),summary:$('summary'),resultBody:$('resultBody'),clearResult:$('clearResult'),copyBtn:$('copyBtn'),csvBtn:$('csvBtn'),xlsxBtn:$('xlsxBtn'),xlsxScope:$('xlsxScope'),editAllBtn:$('editAllBtn'),compareWorkspace:$('compareWorkspace'),trainMin:$('trainMin'),trainMax:$('trainMax'),configBody:$('configBody'),configCount:$('configCount'),addConfigRow:$('addConfigRow'),sortConfig:$('sortConfig'),restoreConfig:$('restoreConfig'),saveConfig:$('saveConfig'),configStatus:$('configStatus')};
 let file=null,rows=[],originalRows=[],editAllMode=false,reviewing=false,providerAvailability=null,activeReviewSession=null,singleReviewInFlight=false;
 const MAX_SINGLE_REVIEW_RETRIES=2;
 const DEFAULT_CONFIG={entries:[{table_no:31,time:'4:21'},{table_no:32,time:'4:46'},{table_no:33,time:'4:50'},{table_no:34,time:'4:52'},{table_no:35,time:'5:00'},{table_no:36,time:'5:08'},{table_no:37,time:'5:10'},{table_no:38,time:'5:16'},{table_no:39,time:'5:18'},{table_no:40,time:'5:38'},{table_no:41,time:'5:47'},{table_no:42,time:'5:51'},{table_no:43,time:'5:55'},{table_no:44,time:'5:59'},{table_no:45,time:'6:05'},{table_no:46,time:'6:09'},{table_no:47,time:'6:13'},{table_no:48,time:'6:19'},{table_no:49,time:'6:23'},{table_no:50,time:'6:27'},{table_no:51,time:'6:31'},{table_no:52,time:'6:35'},{table_no:53,time:'6:39'},{table_no:54,time:'6:43'},{table_no:55,time:'6:47'},{table_no:56,time:'6:51'},{table_no:57,time:'6:55'},{table_no:58,time:'7:00'},{table_no:59,time:'7:05'},{table_no:60,time:'7:17'},{table_no:61,time:'7:35'}],train_number:{min:1,max:112,unique:true}};
@@ -40,7 +40,7 @@ async function check(){if(!state.base){E.connectionState.textContent='请填写 
 function showQuota(d){if(!d)return;E.quota.textContent=`今日本设备 ${d.device_used}/${d.device_limit} 次；服务总计 ${d.global_used}/${d.global_limit} 次。令牌有效至 ${new Date(d.expires_at*1000).toLocaleDateString()}。`}
 async function authorize(){const code=E.accessCode.value.trim();if(!code)return status(E.authStatus,'请输入设备授权码。','error');E.authorizeBtn.disabled=true;status(E.authStatus,'正在验证……');try{const d=await api('/auth',{method:'POST',headers:headers(false),body:JSON.stringify({code,device_name:navigator.userAgent.slice(0,120)})});state.setToken(d.token);E.accessCode.value='';authUI(true);showQuota(d);status(E.status,'设备已授权，请选择照片。','success')}catch(e){status(E.authStatus,e.message,'error')}finally{E.authorizeBtn.disabled=false}}
 function clearReviewSession(){activeReviewSession=null;singleReviewInFlight=false}
-function resetImage(){resetPhotoZoom();clearReviewSession();file=null;reviewing=false;E.imageInput.value='';E.preview.src='';E.previewWrap.classList.add('hidden');E.recognizeBtn.disabled=true;status(E.status,'请选择照片。')}
+function resetImage(){photoAutoFocusPending=false;resetPhotoZoom();clearReviewSession();file=null;reviewing=false;E.imageInput.value='';E.preview.src='';E.previewWrap.classList.add('hidden');E.recognizeBtn.disabled=true;status(E.status,'请选择照片。')}
 function compress(file,max=1900,quality=.86,maxLength=7200000){return new Promise((res,rej)=>{const img=new Image(),u=URL.createObjectURL(file);img.onload=()=>{let w=img.width,h=img.height,s=Math.min(1,max/Math.max(w,h));w=Math.max(1,Math.round(w*s));h=Math.max(1,Math.round(h*s));let c=document.createElement('canvas');const draw=()=>{c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h)};draw();let q=quality,data=c.toDataURL('image/jpeg',q);while(data.length>maxLength&&q>.66){q=Math.max(.66,q-.06);data=c.toDataURL('image/jpeg',q)}for(let round=0;data.length>maxLength&&round<4;round++){const shrink=Math.max(.65,Math.min(.92,Math.sqrt(maxLength/data.length)*.92));w=Math.max(1,Math.round(w*shrink));h=Math.max(1,Math.round(h*shrink));c=document.createElement('canvas');draw();data=c.toDataURL('image/jpeg',Math.min(q,.8))}URL.revokeObjectURL(u);if(data.length>maxLength)return rej(new Error('照片压缩后仍然过大'));res(data)};img.onerror=()=>{URL.revokeObjectURL(u);rej(new Error('照片读取失败'))};img.src=u})}
 async function imageFingerprint(image){const bytes=new TextEncoder().encode(String(image||'')),digest=new Uint8Array(await crypto.subtle.digest('SHA-256',bytes));return[...digest].slice(0,12).map(x=>x.toString(16).padStart(2,'0')).join('')}
 function normalizeTrackName(value){let s=String(value??'').trim().toUpperCase();s=s.replace(/[→➡➜➝]/g,'').replace(/-?>/g,'').replace(/\s+/g,'').replace(/[，。,.；;:：]/g,'');const c=s.match(/^(\d{1,2})(东|西)$/);if(c)return c[1]+c[2];const a=s.match(/^(\d{1,2})(A|C)$/);if(a)return a[1]+(a[2]==='A'?'东':'西');return s}
@@ -104,7 +104,12 @@ function mergeReview(reviewRows,provider,tableNos){
   revalidateRows();
 }
 function markReviewFailure(tableNos,message){const selected=new Set(tableNos.map(Number));rows.forEach(r=>{if(selected.has(r.table_no)){r.review_status='failed';r.review_reasons=[...(r.review_reasons||[]),`自动复核失败：${message}`]}});revalidateRows()}
-function setCompareMode(on){E.compareWorkspace.classList.toggle('has-results',on);document.querySelector('.app').classList.toggle('compare-active',on)}
+function setCompareMode(on){
+  const entering=on&&!E.compareWorkspace.classList.contains('has-results');
+  E.compareWorkspace.classList.toggle('has-results',on);
+  document.querySelector('.app').classList.toggle('compare-active',on);
+  if(entering&&photoAutoFocusPending)schedulePhotoTableFocus();
+}
 function reviewAttempts(row){
   const attempts=Array.isArray(row?.review_attempts)?row.review_attempts.filter(Boolean):[];
   if(attempts.length)return attempts;
@@ -489,6 +494,17 @@ const photoGesture = {
   lastTouchY: 0,
   dragging: false
 };
+const TABLE_FOCUS_REGION={left:.54,top:.12,right:.99,bottom:.91};
+let photoViewMode='full';
+let photoAutoFocusPending=false;
+let photoFocusFrame=0;
+
+function setPhotoViewMode(mode){
+  photoViewMode=mode;
+  if(mode==='custom')photoAutoFocusPending=false;
+  E.focusTableBtn?.classList.toggle('active',mode==='table');
+  E.resetZoomBtn?.classList.toggle('active',mode==='full');
+}
 
 function applyPhotoTransform(){
   if(!E.preview) return;
@@ -518,6 +534,43 @@ function resetPhotoZoom(){
   photoGesture.x = 0;
   photoGesture.y = 0;
   applyPhotoTransform();
+  setPhotoViewMode('full');
+}
+
+function focusPhotoTable(){
+  if(!photoStage||!E.preview||!E.preview.src)return false;
+  const stageW=photoStage.clientWidth;
+  const stageH=photoStage.clientHeight;
+  const baseW=E.preview.offsetWidth;
+  const baseH=E.preview.offsetHeight;
+  if(!stageW||!stageH||!baseW||!baseH)return false;
+
+  const regionW=baseW*(TABLE_FOCUS_REGION.right-TABLE_FOCUS_REGION.left);
+  const regionH=baseH*(TABLE_FOCUS_REGION.bottom-TABLE_FOCUS_REGION.top);
+  const scale=Math.min(5,Math.max(1,Math.min(stageW/regionW,stageH/regionH)));
+  const centerX=baseW*(TABLE_FOCUS_REGION.left+TABLE_FOCUS_REGION.right)/2;
+  const centerY=baseH*(TABLE_FOCUS_REGION.top+TABLE_FOCUS_REGION.bottom)/2;
+
+  photoGesture.scale=scale;
+  photoGesture.x=stageW/2-centerX*scale;
+  photoGesture.y=stageH/2-centerY*scale;
+  clampPhotoPosition();
+  applyPhotoTransform();
+  setPhotoViewMode('table');
+  photoAutoFocusPending=false;
+  return true;
+}
+
+function schedulePhotoTableFocus(){
+  if(photoFocusFrame)cancelAnimationFrame(photoFocusFrame);
+  photoFocusFrame=requestAnimationFrame(()=>{
+    photoFocusFrame=requestAnimationFrame(()=>{
+      photoFocusFrame=0;
+      if(photoAutoFocusPending&&!focusPhotoTable()){
+        E.preview.addEventListener('load',schedulePhotoTableFocus,{once:true});
+      }
+    });
+  });
 }
 
 function touchDistance(a,b){
@@ -567,6 +620,7 @@ if(photoStage){
       photoGesture.scale=newScale;
       clampPhotoPosition();
       applyPhotoTransform();
+      setPhotoViewMode('custom');
     }else if(event.touches.length===1 && photoGesture.dragging && photoGesture.scale>1){
       event.preventDefault();
       const touch=event.touches[0];
@@ -576,17 +630,35 @@ if(photoStage){
       photoGesture.lastTouchY=touch.clientY;
       clampPhotoPosition();
       applyPhotoTransform();
+      setPhotoViewMode('custom');
     }
   },{passive:false});
 
   photoStage.addEventListener('touchend', event=>{
     if(event.touches.length<2) photoGesture.startDistance=0;
     if(event.touches.length===0) photoGesture.dragging=false;
-    if(photoGesture.scale<=1.01) resetPhotoZoom();
+    if(photoGesture.scale<=1.01){
+      photoAutoFocusPending=false;
+      resetPhotoZoom();
+    }
   },{passive:false});
 }
 
-if(E.resetZoomBtn) E.resetZoomBtn.onclick=resetPhotoZoom;
+if(E.resetZoomBtn) E.resetZoomBtn.onclick=()=>{
+  photoAutoFocusPending=false;
+  resetPhotoZoom();
+};
+if(E.focusTableBtn) E.focusTableBtn.onclick=()=>{
+  photoAutoFocusPending=false;
+  if(!focusPhotoTable())status(E.status,'照片尚未加载完成，请稍后再试。','error');
+};
+window.addEventListener('resize',()=>{
+  if(photoViewMode==='table'){
+    photoAutoFocusPending=true;
+    schedulePhotoTableFocus();
+  }
+  else if(photoViewMode==='full')resetPhotoZoom();
+});
 
 E.settingsBtn.onclick=()=>{const opening=E.settingsPanel.classList.contains('hidden');E.settingsPanel.classList.toggle('hidden');if(opening)openConfigEditor()};
 E.closeSettings.onclick=()=>E.settingsPanel.classList.add('hidden');
@@ -602,6 +674,7 @@ E.imageInput.onchange=()=>{
   clearReviewSession();
   file=f;
   resetPhotoZoom();
+  photoAutoFocusPending=true;
   E.preview.src=URL.createObjectURL(f);
   E.previewWrap.classList.remove('hidden');
   E.recognizeBtn.disabled=false;

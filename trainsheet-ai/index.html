@@ -76,7 +76,10 @@
         <div class="photo-stage">
           <img id="preview" alt="车表照片">
         </div>
-        <button id="resetZoomBtn" class="zoom-reset" type="button" aria-label="恢复照片大小">1:1</button>
+        <div class="photo-view-controls" aria-label="原照片显示范围">
+          <button id="focusTableBtn" class="photo-view-btn" type="button" aria-label="聚焦31至61号表格">表格</button>
+          <button id="resetZoomBtn" class="photo-view-btn active" type="button" aria-label="显示整张原照片">整图</button>
+        </div>
         <button id="removeImage" class="remove" aria-label="移除">×</button>
       </div>
       <button id="recognizeBtn" class="primary" disabled>开始识别</button>
@@ -117,7 +120,7 @@
     </section>
   </div>
 
-  <footer>V2.7.9 · 单行再次复核 / 多次结果对照选择</footer>
+  <footer>V2.7.10 · 原照片表格聚焦 / 整图切换</footer>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script src="app.js"></script>
