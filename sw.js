@@ -1,4 +1,4 @@
-const CACHE_NAME = "metro-tools-v2.7.6-hd-review";
+const CACHE_NAME = "metro-tools-v2.7.7-phone-landscape";
 const APP_ASSETS = [
   "./",
   "./index.html",
