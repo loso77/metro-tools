@@ -240,3 +240,160 @@ tr.high-risk{background:#ffe4e6!important}
 .review-badge.pending{color:#1d4ed8}
 .review-badge.disagreed{color:#b42318}
 .review-candidates{display:block;margin-top:3px;font-size:9px;line-height:1.2;color:#b42318;font-weight:700}
+
+/* V2.7.7：手机横屏专用布局。旋转后自动生效，竖屏保持原界面。 */
+@media (orientation:landscape) and (max-height:600px){
+  body{background:#eef3f9}
+  .app{
+    max-width:none;
+    padding:
+      5px max(8px,env(safe-area-inset-right))
+      max(5px,env(safe-area-inset-bottom))
+      max(8px,env(safe-area-inset-left));
+  }
+  .hero{gap:8px;padding:0 2px;min-height:36px}
+  .logo{font-size:28px}
+  .hero h1{font-size:18px}
+  .hero p{display:none}
+  .icon{width:36px;height:36px;border-radius:11px;font-size:17px}
+  .card{margin-top:6px;padding:10px;border-radius:15px}
+  #settingsPanel:not(.hidden){
+    position:fixed;
+    z-index:50;
+    inset:
+      max(5px,env(safe-area-inset-top))
+      max(8px,env(safe-area-inset-right))
+      max(5px,env(safe-area-inset-bottom))
+      max(8px,env(safe-area-inset-left));
+    max-height:none;
+    overflow:auto;
+    margin:0;
+  }
+  #authCard{padding:10px}
+  #authCard .muted{margin:5px 0}
+  #authCard .field{margin-top:7px}
+  #authCard .primary{margin-top:7px;padding:10px}
+
+  /* 选中照片、尚未出结果：左侧操作，右侧大图 */
+  .compare-workspace:not(.has-results) .source-card:has(.preview-wrap:not(.hidden)){
+    display:grid;
+    grid-template-columns:minmax(205px,34%) minmax(0,1fr);
+    grid-template-areas:
+      "title photo"
+      "provider photo"
+      "upload photo"
+      "recognize photo"
+      "progress photo"
+      "status photo"
+      "quota photo";
+    column-gap:10px;
+    align-items:start;
+    max-height:calc(100vh - 48px);
+    max-height:calc(100dvh - 48px);
+    overflow:auto;
+  }
+  .compare-workspace:not(.has-results) .source-card:has(.preview-wrap:not(.hidden)) .source-title{grid-area:title}
+  .compare-workspace:not(.has-results) .source-card:has(.preview-wrap:not(.hidden)) .provider-picker{grid-area:provider;margin-top:6px;padding:7px}
+  .compare-workspace:not(.has-results) .source-card:has(.preview-wrap:not(.hidden)) .provider-picker-title{margin-bottom:5px}
+  .compare-workspace:not(.has-results) .source-card:has(.preview-wrap:not(.hidden)) .provider-options span{min-height:34px;font-size:12px}
+  .compare-workspace:not(.has-results) .source-card:has(.preview-wrap:not(.hidden)) .provider-picker .hint{display:none}
+  .compare-workspace:not(.has-results) .source-card:has(.preview-wrap:not(.hidden)) .upload{grid-area:upload;margin-top:7px;padding:10px;font-size:13px}
+  .compare-workspace:not(.has-results) .source-card:has(.preview-wrap:not(.hidden)) .preview-wrap{grid-area:photo;margin-top:0;min-width:0}
+  .compare-workspace:not(.has-results) .source-card:has(.preview-wrap:not(.hidden)) #recognizeBtn{grid-area:recognize;margin-top:7px;padding:10px;font-size:13px}
+  .compare-workspace:not(.has-results) .source-card:has(.preview-wrap:not(.hidden)) #progress{grid-area:progress;margin-top:7px}
+  .compare-workspace:not(.has-results) .source-card:has(.preview-wrap:not(.hidden)) #status{grid-area:status;margin:6px 0 0;font-size:11px}
+  .compare-workspace:not(.has-results) .source-card:has(.preview-wrap:not(.hidden)) #quota{grid-area:quota;margin:3px 0 0;font-size:10px}
+  .compare-workspace:not(.has-results) .source-card:has(.preview-wrap:not(.hidden)) .photo-stage{
+    height:calc(100vh - 74px);
+    height:calc(100dvh - 74px);
+  }
+
+  /* 出结果后：照片和结果各自固定在一侧，分别缩放/滚动 */
+  .app.compare-active{
+    height:100vh;
+    height:100dvh;
+    overflow:hidden;
+  }
+  .app.compare-active footer{display:none}
+  .compare-workspace.has-results{
+    grid-template-columns:minmax(235px,40%) minmax(0,60%)!important;
+    gap:7px;
+    margin:0!important;
+    align-items:start;
+  }
+  .compare-workspace.has-results .card{
+    margin-top:5px;
+    border-radius:13px;
+    padding:7px!important;
+  }
+  .compare-workspace.has-results .source-card{
+    position:sticky;
+    top:0;
+    height:calc(100vh - 47px);
+    height:calc(100dvh - 47px);
+    overflow:hidden;
+  }
+  .compare-workspace.has-results .source-title .hint,
+  .compare-workspace.has-results .compare-tip,
+  .compare-workspace.has-results .legend{display:none}
+  .compare-workspace.has-results h2{font-size:14px}
+  .compare-workspace.has-results .preview-wrap{margin-top:4px}
+  .compare-workspace.has-results .photo-stage{
+    height:calc(100vh - 82px)!important;
+    height:calc(100dvh - 82px)!important;
+  }
+  .compare-workspace.has-results .result-card{
+    height:calc(100vh - 47px);
+    height:calc(100dvh - 47px);
+    overflow-y:auto;
+    overscroll-behavior:contain;
+  }
+  .compare-workspace.has-results .result-card .section-head{align-items:flex-start}
+  .compare-workspace.has-results #summary{
+    max-height:29px;
+    overflow:auto;
+    margin:2px 0 0;
+    font-size:10px;
+    line-height:1.35;
+  }
+  .compare-workspace.has-results .result-tools{display:block;margin:5px 0}
+  .compare-workspace.has-results .edit-all-btn{display:block;width:100%;padding:6px 5px;font-size:11px}
+  .compare-workspace.has-results .result-card .table-wrap{
+    height:calc(100vh - 186px)!important;
+    height:calc(100dvh - 186px)!important;
+    min-height:105px;
+    max-height:none;
+  }
+  .compare-workspace.has-results .result-card table{
+    width:100%!important;
+    min-width:0!important;
+    table-layout:fixed;
+  }
+  .compare-workspace.has-results .result-card th,
+  .compare-workspace.has-results .result-card td{
+    padding:5px 2px!important;
+    font-size:12px;
+  }
+  .compare-workspace.has-results .result-card th:nth-child(1),
+  .compare-workspace.has-results .result-card td:nth-child(1){width:17%!important}
+  .compare-workspace.has-results .result-card th:nth-child(2),
+  .compare-workspace.has-results .result-card td:nth-child(2){width:25%!important}
+  .compare-workspace.has-results .result-card th:nth-child(3),
+  .compare-workspace.has-results .result-card td:nth-child(3){width:29%!important}
+  .compare-workspace.has-results .result-card th:nth-child(4),
+  .compare-workspace.has-results .result-card td:nth-child(4){width:29%!important}
+  .compare-workspace.has-results .result-card td input{padding:5px 1px!important;font-size:13px}
+  .compare-workspace.has-results .xlsx-scope{
+    flex-direction:row;
+    align-items:center;
+    gap:6px;
+    margin-top:6px;
+    padding:5px 7px;
+  }
+  .compare-workspace.has-results .xlsx-scope label{font-size:11px}
+  .compare-workspace.has-results .xlsx-scope select{padding:5px 6px;font-size:11px}
+  .compare-workspace.has-results .confirm-download{margin-top:6px;padding:9px;font-size:12px}
+  .compare-workspace.has-results .download-hint{display:none}
+  .compare-workspace.has-results .actions{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .compare-workspace.has-results .actions button{margin-top:6px;padding:8px;font-size:11px}
+}
