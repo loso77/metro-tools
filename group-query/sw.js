@@ -1,4 +1,4 @@
-const CACHE_NAME = "train-group-query-v1";
+const CACHE_NAME = "train-group-query-v2-phone-landscape";
 const APP_ASSETS = [
   "./",
   "./index.html",
