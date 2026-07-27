@@ -249,6 +249,8 @@ tr.high-risk{background:#ffe4e6!important}
 .review-badge{display:block;margin-top:3px;font-size:9px;line-height:1.15;font-weight:800;color:#067647}
 .review-badge.pending{color:#1d4ed8}
 .review-badge.disagreed{color:#b42318}
+.review-badge.manual{color:#175cd3}
+.review-badge.hard-conflict{color:#b42318;font-size:9px;line-height:1.2}
 .review-candidates{display:block;margin-top:3px;font-size:9px;line-height:1.2;color:#b42318;font-weight:700}
 
 /* V2.7.7：手机横屏专用布局。旋转后自动生效，竖屏保持原界面。 */
@@ -516,6 +518,18 @@ tr.high-risk{background:#ffe4e6!important}
   color:#667085;
   font-size:10px;
   line-height:1.4;
+}
+.review-choice-panel.hard-conflict-panel{border-color:#fda29b;background:#fff1f3}
+.hard-rule-gate{
+  margin-top:9px;
+  padding:10px 11px;
+  border:1px solid #fda29b;
+  border-radius:11px;
+  background:#fff1f3;
+  color:#b42318;
+  font-size:12px;
+  line-height:1.45;
+  font-weight:750;
 }
 .review-badge{
   white-space:normal;
