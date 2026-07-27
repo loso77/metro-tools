@@ -28,8 +28,8 @@ function updateProviderHint(availability){
   const provider=selectedProvider();
   const available=availability||providerAvailability;
   if(available&&available[provider]===false){E.providerHint.textContent=`${providerLabel(provider)} 尚未在后端配置，请先完成 Cloudflare 环境变量设置。`;E.providerHint.classList.add('provider-warning');return}
-  if(mode==='fast')E.providerHint.textContent='快速识别：只使用豆包 AI，不自动复核，速度最快。';
-  else E.providerHint.textContent=providerAvailability?.qwen===false?'智能识别：豆包 AI 主识别；千问未配置，疑难行将保留人工核对。':'智能识别：豆包 AI 主识别，千问 AI 使用高清完整照片分批复核疑难行。';
+  if(mode==='fast')E.providerHint.textContent='快速识别：豆包 AI 使用右侧31—61表格图，不自动复核。';
+  else E.providerHint.textContent=providerAvailability?.qwen===false?'智能识别：豆包 AI 使用右侧表格图主识别；千问未配置，疑难行将保留人工核对。':'智能识别：豆包 AI 使用右侧表格图主识别，千问 AI 使用分段放大右表＋完整原图证据图复核。';
   E.providerHint.classList.remove('provider-warning');
 }
 function status(el,msg,type=''){el.textContent=msg;el.className=`status ${type}`.trim()}
@@ -42,6 +42,92 @@ async function authorize(){const code=E.accessCode.value.trim();if(!code)return 
 function clearReviewSession(){activeReviewSession=null;singleReviewInFlight=false}
 function resetImage(){photoAutoFocusPending=false;resetPhotoZoom();clearReviewSession();file=null;reviewing=false;E.imageInput.value='';E.preview.src='';E.previewWrap.classList.add('hidden');E.recognizeBtn.disabled=true;status(E.status,'请选择照片。')}
 function compress(file,max=1900,quality=.86,maxLength=7200000){return new Promise((res,rej)=>{const img=new Image(),u=URL.createObjectURL(file);img.onload=()=>{let w=img.width,h=img.height,s=Math.min(1,max/Math.max(w,h));w=Math.max(1,Math.round(w*s));h=Math.max(1,Math.round(h*s));let c=document.createElement('canvas');const draw=()=>{c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h)};draw();let q=quality,data=c.toDataURL('image/jpeg',q);while(data.length>maxLength&&q>.66){q=Math.max(.66,q-.06);data=c.toDataURL('image/jpeg',q)}for(let round=0;data.length>maxLength&&round<4;round++){const shrink=Math.max(.65,Math.min(.92,Math.sqrt(maxLength/data.length)*.92));w=Math.max(1,Math.round(w*shrink));h=Math.max(1,Math.round(h*shrink));c=document.createElement('canvas');draw();data=c.toDataURL('image/jpeg',Math.min(q,.8))}URL.revokeObjectURL(u);if(data.length>maxLength)return rej(new Error('照片压缩后仍然过大'));res(data)};img.onerror=()=>{URL.revokeObjectURL(u);rej(new Error('照片读取失败'))};img.src=u})}
+const FULL_SHEET_TABLE_REGION={left:.43,top:.06,right:1,bottom:.97};
+const FULL_SHEET_DETAIL_REGION={left:.50,top:.11,right:1,bottom:.92,rowTop:.20,rowBottom:.85};
+const NARROW_TABLE_REGION={left:0,top:0,right:1,bottom:1,rowTop:.08,rowBottom:.92};
+function sourcePhotoGeometry(width,height){
+  const aspect=width/Math.max(1,height);
+  if(aspect<.44)return{mode:'table-only',recognition:{...NARROW_TABLE_REGION},detail:{...NARROW_TABLE_REGION}};
+  if(aspect<=.85)return{mode:'full-sheet',recognition:{...FULL_SHEET_TABLE_REGION},detail:{...FULL_SHEET_DETAIL_REGION}};
+  return{mode:'unknown',recognition:{left:0,top:0,right:1,bottom:1},detail:{...NARROW_TABLE_REGION}};
+}
+function pixelRegion(image,region){
+  const left=Math.max(0,Math.min(1,region.left)),top=Math.max(0,Math.min(1,region.top));
+  const right=Math.max(left+.001,Math.min(1,region.right)),bottom=Math.max(top+.001,Math.min(1,region.bottom));
+  return{x:image.width*left,y:image.height*top,width:image.width*(right-left),height:image.height*(bottom-top)};
+}
+function loadLocalImage(inputFile){return new Promise((resolve,reject)=>{const image=new Image(),url=URL.createObjectURL(inputFile);image.onload=()=>resolve({image,url});image.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('照片读取失败'))};image.src=url})}
+function encodeCanvas(canvas,quality=.88,maxLength=7200000){
+  let current=canvas,q=quality,data=current.toDataURL('image/jpeg',q);
+  while(data.length>maxLength&&q>.66){q=Math.max(.66,q-.06);data=current.toDataURL('image/jpeg',q)}
+  for(let round=0;data.length>maxLength&&round<4;round++){
+    const shrink=Math.max(.65,Math.min(.92,Math.sqrt(maxLength/data.length)*.92));
+    const next=document.createElement('canvas');
+    next.width=Math.max(1,Math.round(current.width*shrink));next.height=Math.max(1,Math.round(current.height*shrink));
+    next.getContext('2d').drawImage(current,0,0,next.width,next.height);
+    current=next;data=current.toDataURL('image/jpeg',Math.min(q,.8));
+  }
+  if(data.length>maxLength)throw new Error('证据图压缩后仍然过大');
+  return data;
+}
+function drawImageContain(ctx,image,source,target){
+  const scale=Math.min(target.width/source.width,target.height/source.height);
+  const width=source.width*scale,height=source.height*scale;
+  const x=target.x+(target.width-width)/2,y=target.y+(target.height-height)/2;
+  ctx.drawImage(image,source.x,source.y,source.width,source.height,x,y,width,height);
+  return{x,y,width,height};
+}
+async function createTableRecognitionImage(inputFile,max=2400){
+  const loaded=await loadLocalImage(inputFile);
+  try{
+    const geometry=sourcePhotoGeometry(loaded.image.width,loaded.image.height),source=pixelRegion(loaded.image,geometry.recognition);
+    const scale=Math.min(1,max/Math.max(source.width,source.height));
+    const canvas=document.createElement('canvas');
+    canvas.width=Math.max(1,Math.round(source.width*scale));canvas.height=Math.max(1,Math.round(source.height*scale));
+    canvas.getContext('2d').drawImage(loaded.image,source.x,source.y,source.width,source.height,0,0,canvas.width,canvas.height);
+    return{image:encodeCanvas(canvas,.9),cropped:geometry.mode==='full-sheet',mode:geometry.mode};
+  }finally{URL.revokeObjectURL(loaded.url)}
+}
+function reviewGroupBand(image,startIndex,endIndex){
+  const geometry=sourcePhotoGeometry(image.width,image.height),detail=geometry.detail,entries=configEntries();
+  const count=Math.max(1,entries.length),step=(detail.rowBottom-detail.rowTop)/Math.max(1,count-1);
+  const firstCenter=detail.rowTop+Math.min(startIndex,count-1)*step,lastCenter=detail.rowTop+Math.min(endIndex,count-1)*step;
+  const top=Math.max(detail.top,firstCenter-step*.8),bottom=Math.min(detail.bottom,lastCenter+step*.8);
+  return{geometry,source:pixelRegion(image,{left:detail.left,top,right:detail.right,bottom})};
+}
+async function createReviewEvidenceImage(inputFile){
+  const loaded=await loadLocalImage(inputFile);
+  try{
+    const entries=configEntries();
+    if(!entries.length)throw new Error('缺少车表配置');
+    const image=loaded.image,geometry=sourcePhotoGeometry(image.width,image.height);
+    const groupSize=Math.ceil(entries.length/3),groups=[];
+    for(let start=0;start<entries.length;start+=groupSize)groups.push({start,end:Math.min(entries.length-1,start+groupSize-1)});
+    const canvas=document.createElement('canvas');canvas.width=1600;canvas.height=2200;
+    const ctx=canvas.getContext('2d');
+    ctx.fillStyle='#f8fafc';ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle='#101828';ctx.font='bold 42px sans-serif';ctx.fillText('车表复核证据图：只读取请求中指定的表号',40,62);
+    ctx.fillStyle='#475467';ctx.font='28px sans-serif';ctx.fillText('左侧：31—61号表分段放大　右侧：完整右表与整张原图',40,104);
+
+    const leftX=40,leftW=1000,topY=130,slotH=Math.min(650,Math.floor(2020/groups.length));
+    groups.forEach((group,groupIndex)=>{
+      const band=reviewGroupBand(image,group.start,group.end),source=band.source,slotY=topY+groupIndex*slotH;
+      const first=entries[group.start]?.table_no,last=entries[group.end]?.table_no;
+      ctx.fillStyle='#b42318';ctx.font='bold 32px sans-serif';ctx.fillText(`分段放大：表号 ${first}—${last}`,leftX,slotY+34);
+      const target={x:leftX,y:slotY+50,width:leftW,height:slotH-74};
+      drawImageContain(ctx,image,source,target);
+    });
+
+    const rightX=1080,rightW=480;
+    ctx.fillStyle='#344054';ctx.font='bold 30px sans-serif';ctx.fillText('完整右表',rightX,150);
+    const tableSource=pixelRegion(image,geometry.recognition);
+    drawImageContain(ctx,image,tableSource,{x:rightX,y:175,width:rightW,height:1270});
+
+    ctx.fillStyle='#344054';ctx.font='bold 30px sans-serif';ctx.fillText('整张原图（跨行补写参考）',rightX,1500);
+    drawImageContain(ctx,image,{x:0,y:0,width:image.width,height:image.height},{x:rightX,y:1525,width:rightW,height:635});
+    return encodeCanvas(canvas,.88);
+  }finally{URL.revokeObjectURL(loaded.url)}
+}
 async function imageFingerprint(image){const bytes=new TextEncoder().encode(String(image||'')),digest=new Uint8Array(await crypto.subtle.digest('SHA-256',bytes));return[...digest].slice(0,12).map(x=>x.toString(16).padStart(2,'0')).join('')}
 function normalizeTrackName(value){let s=String(value??'').trim().toUpperCase();s=s.replace(/[→➡➜➝]/g,'').replace(/-?>/g,'').replace(/\s+/g,'').replace(/[，。,.；;:：]/g,'');const c=s.match(/^(\d{1,2})(东|西)$/);if(c)return c[1]+c[2];const a=s.match(/^(\d{1,2})(A|C)$/);if(a)return a[1]+(a[2]==='A'?'东':'西');return s}
 function norm(input){const entries=configEntries(),allowed=new Set(entries.map(x=>x.table_no)),times=new Map(entries.map(x=>[x.table_no,x.time])),m=new Map();(Array.isArray(input)?input:[]).forEach(x=>{const n=Number(x.table_no);if(!allowed.has(n)||m.has(n))return;m.set(n,{table_no:n,time:times.get(n)||'',train_number:String(x.train_number??'').trim(),track_name:normalizeTrackName(x.track_name),old_train_number:String(x.old_train_number??'').trim(),old_track_name:normalizeTrackName(x.old_track_name),train_modified:Boolean(x.train_modified),track_modified:Boolean(x.track_modified),ambiguity:Boolean(x.ambiguity),needs_review:Boolean(x.needs_review),review_reasons:Array.isArray(x.review_reasons)?x.review_reasons.map(String):[],review_status:String(x.review_status||''),review_candidates:x.review_candidates||null,note:String(x.note??'').trim(),confidence:Math.max(0,Math.min(1,Number(x.confidence)||0))})});return entries.map(e=>m.get(e.table_no)||{table_no:e.table_no,time:e.time,train_number:'',track_name:'',old_train_number:'',old_track_name:'',train_modified:false,track_modified:false,ambiguity:true,needs_review:true,review_reasons:['模型未返回该表号'],review_status:'',review_candidates:null,note:'模型未返回该表号',confidence:0})}
@@ -174,7 +260,7 @@ async function retrySingleRow(index){
   singleReviewInFlight=true;
   row.review_retrying=true;
   render(false);
-  status(E.status,`正在使用高清完整照片重新复核表号 ${row.table_no}，只判断这一行……`);
+  status(E.status,`正在使用右表分段放大证据图重新复核表号 ${row.table_no}，只判断这一行……`);
   try{
     const d=await api('/recognize',{
       method:'POST',
@@ -186,7 +272,7 @@ async function retrySingleRow(index){
         config:reviewConfig([row.table_no]),
         provider:session.provider,
         focus_table_no:row.table_no,
-        focus_instruction:'只判断目标表号的车号和股道，可参考上下相邻行定位；不要改动其他表号。',
+        focus_instruction:'证据图左侧是31—61号表的分段放大，右侧保留完整右表与整张原图。只判断目标表号的车号和股道，可参考上下相邻行及跨行补写；不要读取或改动其他表号。',
         retry_attempt:retryCount+1
       })
     });
@@ -326,11 +412,20 @@ async function recognize(){
   let timer=null,phase=`${providerLabel(chosen)}正在识别当前配置的 ${sheetConfig.entries.length} 个表号`;
   status(E.status,'正在本地压缩照片……');
   try{
-    const image=await compress(file);
-    let reviewImage=image,reviewImageHash='',reviewImageIsHd=false;
+    status(E.status,'正在提取右侧31—61号表格，准备主识别图片……');
+    let image,mainImageCropped=false;
+    try{
+      const primaryImage=await createTableRecognitionImage(file);
+      image=primaryImage.image;mainImageCropped=primaryImage.cropped;
+    }catch{
+      image=await compress(file);
+    }
+    let reviewImage=image,reviewImageHash='',reviewImageIsEvidence=false;
     if(autoReviewEnabled()){
-      status(E.status,'正在准备高清完整照片，供千问复核疑难行……');
-      try{reviewImage=await compress(file,3000,.9,7200000);reviewImageIsHd=true}catch{reviewImage=image}
+      status(E.status,'正在本地生成复核证据图：分段放大右表，并保留完整右表和整张原图……');
+      try{reviewImage=await createReviewEvidenceImage(file);reviewImageIsEvidence=true}catch{
+        try{reviewImage=await compress(file,3000,.9,7200000)}catch{reviewImage=image}
+      }
       reviewImageHash=await imageFingerprint(reviewImage);
     }
     const start=Date.now();
@@ -340,7 +435,7 @@ async function recognize(){
     const d=await api('/recognize',{method:'POST',headers:headers(),body:JSON.stringify({image,review_image_hash:reviewImageHash,config:apiConfig(),provider:primaryProvider})});
 
     rows=norm(d.rows);revalidateRows();showQuota(d.usage);
-    const primaryExtra=`${providerLabel(primaryProvider)}耗时${Math.round((d.elapsed_ms||0)/1000)}秒`;
+    const primaryExtra=`${providerLabel(primaryProvider)}${mainImageCropped?'右表裁切识别':'原图识别'}耗时${Math.round((d.elapsed_ms||0)/1000)}秒`;
     const reviewInfo=autoReviewEnabled()&&d.review?.token&&Array.isArray(d.review.table_nos)&&d.review.table_nos.length?d.review:null;
     if(!reviewInfo){
       originalRows=cloneRows();render();
@@ -353,17 +448,18 @@ async function recognize(){
       token:reviewInfo.token,
       provider:reviewInfo.provider||'qwen',
       image:reviewImage,
+      evidence:reviewImageIsEvidence,
       tableNos:new Set(reviewInfo.table_nos.map(Number))
     };
     const selected=new Set(reviewInfo.table_nos.map(Number));
     rows.forEach(r=>{if(selected.has(r.table_no))r.review_status='pending'});
     reviewing=true;render();
     const batches=splitReviewBatches(reviewInfo.table_nos,Math.max(1,Math.min(3,Number(reviewInfo.batch_size)||3)));
-    phase=`${providerLabel(reviewInfo.provider)}正在使用${reviewImageIsHd?'高清完整照片':'当前完整照片'}分${batches.length}批复核 ${reviewInfo.table_nos.length} 个疑难表号`;
+    phase=`${providerLabel(reviewInfo.provider)}正在使用${reviewImageIsEvidence?'右表分段放大证据图':'当前照片'}分${batches.length}批复核 ${reviewInfo.table_nos.length} 个疑难表号`;
     status(E.status,`${primaryExtra}，结果已显示；${phase}。`);
     try{
       const reviewStarted=Date.now();
-      const settled=await Promise.allSettled(batches.map(batch=>api('/recognize',{method:'POST',headers:headers(),body:JSON.stringify({mode:'review',review_token:reviewInfo.token,image:reviewImage,config:reviewConfig(batch),provider:reviewInfo.provider})})));
+      const settled=await Promise.allSettled(batches.map(batch=>api('/recognize',{method:'POST',headers:headers(),body:JSON.stringify({mode:'review',review_token:reviewInfo.token,image:reviewImage,config:reviewConfig(batch),provider:reviewInfo.provider,evidence_mode:reviewImageIsEvidence?'segmented_right_table':'full_image',focus_table_nos:batch,focus_instruction:'证据图左侧按表号分段放大右侧31—61表格，右侧保留完整右表与整张原图。只返回本批配置中的表号，严格按印刷表号所在行读取车号和股道，不得从其他行复制。'})})));
       let succeeded=0,failed=0;
       settled.forEach((result,i)=>{const batch=batches[i];if(result.status==='fulfilled'){succeeded++;mergeReview(result.value.rows,reviewInfo.provider,batch);showQuota(result.value.usage)}else{failed++;markReviewFailure(batch,result.reason?.message||'请求失败')}});
       const limited=Number(reviewInfo.total_flagged)>reviewInfo.table_nos.length?`已优先复核最疑难的${reviewInfo.table_nos.length}行，其余疑难行保留人工确认。`:'';

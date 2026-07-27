@@ -1,4 +1,4 @@
-const CACHE_NAME = "metro-tools-v2.8.4-hard-rule-gate";
+const CACHE_NAME = "metro-tools-v2.8.5-table-evidence";
 const APP_ASSETS = [
   "./",
   "./index.html",
@@ -10,7 +10,7 @@ const APP_ASSETS = [
   "./train-query/manifest.json",
   "./train-query/sw.js",
   "./trainsheet-ai/",
-  "./trainsheet-ai/?v=2.7.11",
+  "./trainsheet-ai/?v=2.7.12",
   "./trainsheet-ai/index.html",
   "./trainsheet-ai/style.css",
   "./trainsheet-ai/app.js",
