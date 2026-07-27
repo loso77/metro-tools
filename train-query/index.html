@@ -531,6 +531,82 @@ button:active { background: #1547b8; }
   transform: scale(0.97) translateY(2px);
 }
 
+.view-mode-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: -2px 0 16px;
+}
+.view-mode-label {
+  color: #718096;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.view-mode-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  width: 190px;
+  padding: 3px;
+  border-radius: 10px;
+  background: #edf2f7;
+}
+.view-mode-btn {
+  width: auto;
+  margin: 0;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #718096;
+  box-shadow: none;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.view-mode-btn.active {
+  background: #fff;
+  color: #1a56db;
+  box-shadow: 0 1px 4px rgba(0,0,0,.08);
+}
+
+.result-page-head {
+  display: none;
+}
+.back-query-btn {
+  width: auto;
+  margin: 0;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 10px;
+  background: #edf2f7;
+  color: #2d3748;
+  box-shadow: none;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.result-page-title {
+  color: #1a202c;
+  font-size: 16px;
+  font-weight: 800;
+}
+.query-page-message {
+  display: none;
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #fff5f5;
+  color: #c53030;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+.query-page-message.visible {
+  display: block;
+}
+
 .depot-info {
   font-size: 11px;
   color: #a0aec0;
@@ -541,6 +617,44 @@ button:active { background: #1547b8; }
 
 /* 竖屏默认：左右容器正常堆叠，不影响原布局 */
 .card-left, .card-right { width: 100%; }
+
+/* 翻页模式：竖屏查询成功后只显示结果页 */
+@media (orientation: portrait) {
+  body.paged-mode:not(.result-page) .card-right {
+    display: none;
+  }
+  body.result-page {
+    justify-content: flex-start;
+    padding-top: 12px;
+  }
+  body.result-page > h1,
+  body.result-page > .subtitle {
+    display: none;
+  }
+  body.result-page .card {
+    padding-top: 14px;
+  }
+  body.result-page .card-left {
+    display: none;
+  }
+  body.result-page .card-right {
+    display: block;
+    width: 100%;
+  }
+  body.result-page .result-page-head {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: -4px 0 8px;
+    padding: 4px 0 10px;
+    background: #fff;
+    border-bottom: 1px solid #edf2f7;
+  }
+}
 
 /* 横屏布局：左右分栏 */
 @media (orientation: landscape) and (max-height: 600px) {
@@ -572,6 +686,7 @@ button:active { background: #1547b8; }
   .import-section { margin-top: 14px; padding-top: 12px; }
   /* 结果区不要顶部分割线重复 */
   .card-right .divider { display: none; }
+  .result-page-head { display: none !important; }
 }
 
 .srcol-item.sr-next {
@@ -626,6 +741,13 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     <button type="button" class="mode-tab" id="tabWeekday" onclick="switchMode('weekday')">平日</button>
     <button type="button" class="mode-tab" id="tabWeekend" onclick="switchMode('weekend')">双休日</button>
   </div>
+  <div class="view-mode-row">
+    <span class="view-mode-label">结果显示</span>
+    <div class="view-mode-switch" role="group" aria-label="结果显示方式">
+      <button type="button" class="view-mode-btn" id="viewModePaged" onclick="setResultViewMode('paged')">翻页模式</button>
+      <button type="button" class="view-mode-btn" id="viewModeContinuous" onclick="setResultViewMode('continuous')">连续模式</button>
+    </div>
+  </div>
   <div class="input-label">输入表号或车次</div>
   <div class="input-row">
     <input type="text" id="tableInput" placeholder="表号如31 / 车次如1803"
@@ -633,19 +755,20 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     <button onclick="query()">查询</button>
     <button type="button" class="clear-btn" onclick="clearAll()">清空</button>
   </div>
+  <div class="query-page-message" id="queryPageMessage" role="status" aria-live="polite"></div>
   <div class="station-row">
-    <select id="stationSelect" class="station-select" onchange="query()">
+    <select id="stationSelect" class="station-select" onchange="query(false)">
       <option value="">— 选择到站站点（可选）—</option>
     </select>
   </div>
   <div class="station-time-row">
     <span class="station-time-label">指定查询时间（只选小时按整点查询）</span>
     <div class="station-time-controls">
-      <select id="stationHour" class="station-time-select" aria-label="小时" onchange="query()">
+      <select id="stationHour" class="station-time-select" aria-label="小时" onchange="query(false)">
         <option value="">小时</option>
       </select>
       <span class="station-time-colon">:</span>
-      <select id="stationMinute" class="station-time-select" aria-label="分钟" onchange="query()">
+      <select id="stationMinute" class="station-time-select" aria-label="分钟" onchange="query(false)">
         <option value="">分钟</option>
       </select>
     </div>
@@ -664,6 +787,10 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   </div><!-- /card-left -->
 
   <div class="card-right">
+  <div class="result-page-head" id="resultPageHead">
+    <button type="button" class="back-query-btn" onclick="showQueryPage()">← 返回查询</button>
+    <span class="result-page-title">查询结果</span>
+  </div>
   <div id="result"></div>
   <p class="hint" id="hint">输入<b>表号</b>(2~3位)或<b>车次</b>(4位)，可查询当前或指定时间的位置<br>也可只选择<b>站点和时间</b>，查询车站到发情况</p>
 
@@ -694,6 +821,15 @@ let DATA = BUILTIN_DATA;
 let EXTRA = BUILTIN_EXTRA_WD;  // 当前模式的加开车次数据        // 当前生效数据
 let DATA_NAME = STORE.weekday.defaultName;
 let hasActiveQuery = false;
+const RESULT_VIEW_MODE_KEY = 'pr_result_view_mode';
+let resultViewMode = 'paged';
+let pendingResultPageOpen = false;
+try {
+  const savedResultViewMode = localStorage.getItem(RESULT_VIEW_MODE_KEY);
+  if (savedResultViewMode === 'paged' || savedResultViewMode === 'continuous') {
+    resultViewMode = savedResultViewMode;
+  }
+} catch(e) {}
 
 // 凌晨3点前仍按前一运营日判断平日/双休日
 function getServiceDayInfo(now = new Date()) {
@@ -736,7 +872,70 @@ const loadedName = { weekday: STORE.weekday.defaultName, weekend: STORE.weekend.
     }
   } catch(e) {}
   applyMode(mode);
+  applyResultViewMode();
 })();
+
+function isPortraitLayout() {
+  return window.matchMedia
+    ? window.matchMedia('(orientation: portrait)').matches
+    : window.innerHeight >= window.innerWidth;
+}
+
+function hasUsableResult() {
+  const result = document.getElementById('result');
+  return !!(result && result.textContent.trim() && !result.querySelector('.error-msg'));
+}
+
+function setQueryPageMessage(message = '') {
+  const box = document.getElementById('queryPageMessage');
+  if (!box) return;
+  const shouldShow = resultViewMode === 'paged' && !!message;
+  box.textContent = shouldShow ? message : '';
+  box.classList.toggle('visible', shouldShow);
+}
+
+function applyResultViewMode() {
+  const paged = document.getElementById('viewModePaged');
+  const continuous = document.getElementById('viewModeContinuous');
+  document.body.classList.toggle('paged-mode', resultViewMode === 'paged');
+  if (paged) {
+    paged.classList.toggle('active', resultViewMode === 'paged');
+    paged.setAttribute('aria-pressed', String(resultViewMode === 'paged'));
+  }
+  if (continuous) {
+    continuous.classList.toggle('active', resultViewMode === 'continuous');
+    continuous.setAttribute('aria-pressed', String(resultViewMode === 'continuous'));
+  }
+  const error = document.querySelector('#result .error-msg');
+  setQueryPageMessage(error ? error.textContent.trim() : '');
+}
+
+function setResultViewMode(nextMode) {
+  if (nextMode !== 'paged' && nextMode !== 'continuous') return;
+  resultViewMode = nextMode;
+  pendingResultPageOpen = false;
+  try { localStorage.setItem(RESULT_VIEW_MODE_KEY, nextMode); } catch(e) {}
+  applyResultViewMode();
+
+  if (nextMode === 'continuous') {
+    showQueryPage();
+  } else if (hasUsableResult()) {
+    showResultPage();
+  }
+}
+
+function showResultPage() {
+  if (resultViewMode !== 'paged' || !isPortraitLayout() || !hasUsableResult()) return;
+  document.body.classList.add('result-page');
+  pendingResultPageOpen = false;
+  window.scrollTo({ top: 0, behavior: 'auto' });
+}
+
+function showQueryPage(shouldScroll = true) {
+  document.body.classList.remove('result-page');
+  pendingResultPageOpen = false;
+  if (shouldScroll) window.scrollTo({ top: 0, behavior: 'auto' });
+}
 
 function applyMode(m) {
   mode = m;
@@ -761,6 +960,8 @@ function applyMode(m) {
   hasActiveQuery = false;
   if (res) res.innerHTML = '';
   if (hint) hint.style.display = 'block';
+  setQueryPageMessage();
+  showQueryPage(false);
 }
 
 function switchMode(m) {
@@ -1019,7 +1220,7 @@ setInterval(() => {
   if (!hasActiveQuery) return;
   const hour = document.getElementById('stationHour').value;
   const minute = document.getElementById('stationMinute').value;
-  if (!hour && !minute) query();
+  if (!hour && !minute) query(false);
 }, 5000);
 updateDataLabel();
 
@@ -1250,9 +1451,13 @@ function clearAll() {
   if (res) res.innerHTML = '';
   if (hint) hint.style.display = 'block';
   if (inp) inp.blur();
+  setQueryPageMessage();
+  showQueryPage();
 }
 
-function query() {
+function query(openResultPage = true) {
+  pendingResultPageOpen = !!openResultPage;
+  setQueryPageMessage();
   const raw = document.getElementById('tableInput').value.trim();
   const el  = document.getElementById('result');
   const hint = document.getElementById('hint');
@@ -1573,6 +1778,32 @@ function query() {
 
 document.getElementById('tableInput').addEventListener('keydown', e => {
   if (e.key === 'Enter') query();
+});
+
+// 现有查询函数有多种成功出口。统一监听结果区，只在用户主动查询成功时翻到结果页。
+(function bindResultPageTransition(){
+  const result = document.getElementById('result');
+  if (!result || typeof MutationObserver === 'undefined') return;
+  const observer = new MutationObserver(() => {
+    const error = result.querySelector('.error-msg');
+    if (error) {
+      setQueryPageMessage(error.textContent.trim());
+      pendingResultPageOpen = false;
+      return;
+    }
+    if (!pendingResultPageOpen) return;
+    if (!result.textContent.trim()) {
+      pendingResultPageOpen = false;
+      return;
+    }
+    setQueryPageMessage();
+    showResultPage();
+  });
+  observer.observe(result, { childList: true, subtree: true });
+})();
+
+window.addEventListener('orientationchange', () => {
+  if (!isPortraitLayout()) document.body.classList.remove('result-page');
 });
 
 // iOS Safari 检测，显示安装提示
