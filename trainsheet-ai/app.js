@@ -1,6 +1,7 @@
 const $=id=>document.getElementById(id);
 const E={settingsBtn:$('settingsBtn'),settingsPanel:$('settingsPanel'),closeSettings:$('closeSettings'),workerUrl:$('workerUrl'),saveWorker:$('saveWorker'),debugModelBtn:$('debugModelBtn'),connectionState:$('connectionState'),logoutBtn:$('logoutBtn'),authCard:$('authCard'),accessCode:$('accessCode'),authorizeBtn:$('authorizeBtn'),authStatus:$('authStatus'),mainCard:$('mainCard'),providerHint:$('providerHint'),imageInput:$('imageInput'),preview:$('preview'),previewWrap:$('previewWrap'),resetZoomBtn:$('resetZoomBtn'),removeImage:$('removeImage'),recognizeBtn:$('recognizeBtn'),progress:$('progress'),status:$('status'),quota:$('quota'),resultCard:$('resultCard'),summary:$('summary'),resultBody:$('resultBody'),clearResult:$('clearResult'),copyBtn:$('copyBtn'),csvBtn:$('csvBtn'),xlsxBtn:$('xlsxBtn'),xlsxScope:$('xlsxScope'),editAllBtn:$('editAllBtn'),compareWorkspace:$('compareWorkspace'),trainMin:$('trainMin'),trainMax:$('trainMax'),configBody:$('configBody'),configCount:$('configCount'),addConfigRow:$('addConfigRow'),sortConfig:$('sortConfig'),restoreConfig:$('restoreConfig'),saveConfig:$('saveConfig'),configStatus:$('configStatus')};
-let file=null,rows=[],originalRows=[],editAllMode=false,reviewing=false,providerAvailability=null;
+let file=null,rows=[],originalRows=[],editAllMode=false,reviewing=false,providerAvailability=null,activeReviewSession=null,singleReviewInFlight=false;
+const MAX_SINGLE_REVIEW_RETRIES=2;
 const DEFAULT_CONFIG={entries:[{table_no:31,time:'4:21'},{table_no:32,time:'4:46'},{table_no:33,time:'4:50'},{table_no:34,time:'4:52'},{table_no:35,time:'5:00'},{table_no:36,time:'5:08'},{table_no:37,time:'5:10'},{table_no:38,time:'5:16'},{table_no:39,time:'5:18'},{table_no:40,time:'5:38'},{table_no:41,time:'5:47'},{table_no:42,time:'5:51'},{table_no:43,time:'5:55'},{table_no:44,time:'5:59'},{table_no:45,time:'6:05'},{table_no:46,time:'6:09'},{table_no:47,time:'6:13'},{table_no:48,time:'6:19'},{table_no:49,time:'6:23'},{table_no:50,time:'6:27'},{table_no:51,time:'6:31'},{table_no:52,time:'6:35'},{table_no:53,time:'6:39'},{table_no:54,time:'6:43'},{table_no:55,time:'6:47'},{table_no:56,time:'6:51'},{table_no:57,time:'6:55'},{table_no:58,time:'7:00'},{table_no:59,time:'7:05'},{table_no:60,time:'7:17'},{table_no:61,time:'7:35'}],train_number:{min:1,max:112,unique:true}};
 function cloneConfig(c){return JSON.parse(JSON.stringify(c))}
 function sanitizeLocalConfig(raw){
@@ -38,7 +39,8 @@ async function api(path,options={}){if(!state.base)throw new Error('请先填写
 async function check(){if(!state.base){E.connectionState.textContent='请填写 Worker 地址。';authUI(false);return}try{const d=await api('/health',{headers:headers(false)});E.connectionState.textContent=d.ok?'Worker 连接正常。':'Worker 尚未配置完整。';updateProviderHint(d.providers);if(state.token){try{const me=await api('/me',{headers:headers()});authUI(true);showQuota(me)}catch(e){if(e.status===401)state.setToken('');authUI(false)}}}catch(e){E.connectionState.textContent='连接失败：'+e.message;authUI(false)}}
 function showQuota(d){if(!d)return;E.quota.textContent=`今日本设备 ${d.device_used}/${d.device_limit} 次；服务总计 ${d.global_used}/${d.global_limit} 次。令牌有效至 ${new Date(d.expires_at*1000).toLocaleDateString()}。`}
 async function authorize(){const code=E.accessCode.value.trim();if(!code)return status(E.authStatus,'请输入设备授权码。','error');E.authorizeBtn.disabled=true;status(E.authStatus,'正在验证……');try{const d=await api('/auth',{method:'POST',headers:headers(false),body:JSON.stringify({code,device_name:navigator.userAgent.slice(0,120)})});state.setToken(d.token);E.accessCode.value='';authUI(true);showQuota(d);status(E.status,'设备已授权，请选择照片。','success')}catch(e){status(E.authStatus,e.message,'error')}finally{E.authorizeBtn.disabled=false}}
-function resetImage(){resetPhotoZoom();file=null;reviewing=false;E.imageInput.value='';E.preview.src='';E.previewWrap.classList.add('hidden');E.recognizeBtn.disabled=true;status(E.status,'请选择照片。')}
+function clearReviewSession(){activeReviewSession=null;singleReviewInFlight=false}
+function resetImage(){resetPhotoZoom();clearReviewSession();file=null;reviewing=false;E.imageInput.value='';E.preview.src='';E.previewWrap.classList.add('hidden');E.recognizeBtn.disabled=true;status(E.status,'请选择照片。')}
 function compress(file,max=1900,quality=.86,maxLength=7200000){return new Promise((res,rej)=>{const img=new Image(),u=URL.createObjectURL(file);img.onload=()=>{let w=img.width,h=img.height,s=Math.min(1,max/Math.max(w,h));w=Math.max(1,Math.round(w*s));h=Math.max(1,Math.round(h*s));let c=document.createElement('canvas');const draw=()=>{c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h)};draw();let q=quality,data=c.toDataURL('image/jpeg',q);while(data.length>maxLength&&q>.66){q=Math.max(.66,q-.06);data=c.toDataURL('image/jpeg',q)}for(let round=0;data.length>maxLength&&round<4;round++){const shrink=Math.max(.65,Math.min(.92,Math.sqrt(maxLength/data.length)*.92));w=Math.max(1,Math.round(w*shrink));h=Math.max(1,Math.round(h*shrink));c=document.createElement('canvas');draw();data=c.toDataURL('image/jpeg',Math.min(q,.8))}URL.revokeObjectURL(u);if(data.length>maxLength)return rej(new Error('照片压缩后仍然过大'));res(data)};img.onerror=()=>{URL.revokeObjectURL(u);rej(new Error('照片读取失败'))};img.src=u})}
 async function imageFingerprint(image){const bytes=new TextEncoder().encode(String(image||'')),digest=new Uint8Array(await crypto.subtle.digest('SHA-256',bytes));return[...digest].slice(0,12).map(x=>x.toString(16).padStart(2,'0')).join('')}
 function normalizeTrackName(value){let s=String(value??'').trim().toUpperCase();s=s.replace(/[→➡➜➝]/g,'').replace(/-?>/g,'').replace(/\s+/g,'').replace(/[，。,.；;:：]/g,'');const c=s.match(/^(\d{1,2})(东|西)$/);if(c)return c[1]+c[2];const a=s.match(/^(\d{1,2})(A|C)$/);if(a)return a[1]+(a[2]==='A'?'东':'西');return s}
@@ -47,15 +49,17 @@ function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;',
 function cloneRows(value=rows){return JSON.parse(JSON.stringify(value))}
 function reviewConfig(tableNos){const wanted=new Set(tableNos.map(Number));return{entries:sheetConfig.entries.filter(x=>wanted.has(x.table_no)).map(x=>({...x})),train_number:{...sheetConfig.train_number,unique:true},track_unique:true}}
 function splitReviewBatches(tableNos,size=3){const batches=[];for(let i=0;i<tableNos.length;i+=size)batches.push(tableNos.slice(i,i+size));return batches}
+const RESOLVED_REVIEW_STATUSES=new Set(['agreed','corrected','accepted_secondary']);
+function isResolvedReviewStatus(value){return RESOLVED_REVIEW_STATUSES.has(value)}
 function revalidateRows(){
   const trainMap=new Map(),trackMap=new Map(),min=sheetConfig.train_number.min,max=sheetConfig.train_number.max;
   rows.forEach(r=>{
-    const reasons=(r.review_reasons||[]).filter(x=>/自动复核失败|双模型结果不一致|复核模型仍不确定/.test(x));
+    const reasons=(r.review_reasons||[]).filter(x=>/自动复核失败|双模型结果不一致|复核模型仍不确定|再次复核结果待人工选择/.test(x));
     const n=Number(r.train_number);
     if(!r.train_number)reasons.push('车号为空');
     else if(!/^\d{3}$/.test(r.train_number)||n<min||n>max)reasons.push(`车号不在${String(min).padStart(3,'0')}—${String(max).padStart(3,'0')}范围内`);
     if(!r.track_name)reasons.push('股道为空');
-    if(!['agreed','corrected'].includes(r.review_status)){
+    if(!isResolvedReviewStatus(r.review_status)){
       if(r.train_modified)reasons.push('车号存在划掉或重写');
       if(r.track_modified)reasons.push('股道存在划掉或重写');
       if(r.ambiguity)reasons.push('模型认为最终值仍不确定');
@@ -75,7 +79,7 @@ function mergeReview(reviewRows,provider,tableNos){
   rows.forEach(primary=>{
     if(!selected.has(primary.table_no))return;
     const second=secondary.get(primary.table_no);
-    if(!second){primary.review_status='failed';primary.review_reasons=[...(primary.review_reasons||[]),'自动复核失败：未返回该表号'];return}
+    if(!second){primary.review_status='failed';primary.review_attempts=[];primary.review_reasons=[...(primary.review_reasons||[]),'自动复核失败：未返回该表号'];return}
     const secondTrain=String(second.train_number??'').trim(),secondTrack=normalizeTrackName(second.track_name),secondOldTrain=String(second.old_train_number??'').trim(),secondOldTrack=normalizeTrackName(second.old_track_name);
     const confidence=Number(second.confidence)||0,certain=Boolean(secondTrain&&secondTrack&&!second.ambiguity&&confidence>=.75),correctionCertain=confidence>=.88;
     const trainDiff=secondTrain!==primary.train_number,trackDiff=secondTrack!==primary.track_name;
@@ -89,18 +93,174 @@ function mergeReview(reviewRows,provider,tableNos){
       if(secondOldTrack)primary.old_track_name=secondOldTrack;
       primary.train_modified=Boolean(primary.train_modified||second.train_modified);
       primary.track_modified=Boolean(primary.track_modified||second.track_modified);
-      primary.review_status=trainCorrection||trackCorrection?'corrected':'agreed';primary.review_candidates=null;primary.ambiguity=false;primary.confidence=Math.max(primary.confidence,Number(second.confidence)||0);
+      primary.review_status=trainCorrection||trackCorrection?'corrected':'agreed';primary.review_candidates=null;primary.review_attempts=[];primary.ambiguity=false;primary.confidence=Math.max(primary.confidence,Number(second.confidence)||0);
     }else if(secondTrain||secondTrack){
-      primary.review_status='disagreed';primary.review_candidates={provider,primary:{train_number:primary.train_number,track_name:primary.track_name},secondary:{train_number:secondTrain,track_name:secondTrack}};primary.review_reasons=[...(primary.review_reasons||[]),'双模型结果不一致'];
+      const firstAttempt={provider,train_number:secondTrain,track_name:secondTrack,attempt:0};
+      primary.review_status='disagreed';primary.review_candidates={provider,primary:{train_number:primary.train_number,track_name:primary.track_name},secondary:{train_number:secondTrain,track_name:secondTrack}};primary.review_attempts=[firstAttempt];primary.review_retry_count=0;primary.review_reasons=[...(primary.review_reasons||[]),'双模型结果不一致'];
     }else{
-      primary.review_status='uncertain';primary.review_candidates=null;primary.review_reasons=[...(primary.review_reasons||[]),'复核模型仍不确定'];
+      primary.review_status='uncertain';primary.review_candidates=null;primary.review_attempts=[];primary.review_retry_count=0;primary.review_reasons=[...(primary.review_reasons||[]),'复核模型仍不确定'];
     }
   });
   revalidateRows();
 }
 function markReviewFailure(tableNos,message){const selected=new Set(tableNos.map(Number));rows.forEach(r=>{if(selected.has(r.table_no)){r.review_status='failed';r.review_reasons=[...(r.review_reasons||[]),`自动复核失败：${message}`]}});revalidateRows()}
 function setCompareMode(on){E.compareWorkspace.classList.toggle('has-results',on);document.querySelector('.app').classList.toggle('compare-active',on)}
-function render(){E.resultBody.innerHTML='';let n=0,modified=0,conflicts=0,verified=0;rows.forEach((r,i)=>{const empty=!r.train_number||!r.track_name,review=Boolean(r.needs_review)||empty;if(review)n++;if(['agreed','corrected'].includes(r.review_status))verified++;if(r.train_modified||r.track_modified)modified++;if((r.review_reasons||[]).some(x=>x.includes('重复')))conflicts++;const tr=document.createElement('tr');if(review)tr.classList.add('review');if(r.review_status==='pending')tr.classList.add('reviewing-row');if(['agreed','corrected'].includes(r.review_status))tr.classList.add('review-agreed');if(r.ambiguity)tr.classList.add('high-risk');if(empty)tr.classList.add('empty');const reasons=(r.review_reasons||[]).join('；')||r.note||'';if(reasons)tr.title=`表号${r.table_no}：${reasons}`;let badge=review?'<span class="row-alert">需核对</span>':'';if(r.review_status==='pending')badge='<span class="review-badge pending">自动复核中</span>';if(r.review_status==='agreed')badge='<span class="review-badge">双模型一致</span>';if(r.review_status==='corrected')badge='<span class="review-badge">复核已更正</span>';if(r.review_status==='disagreed')badge='<span class="review-badge disagreed">双模型不一致</span>';if(r.review_status==='failed')badge='<span class="review-badge disagreed">复核失败</span>';if(r.review_status==='uncertain')badge='<span class="review-badge disagreed">复核仍不确定</span>';let candidates='';if(r.review_candidates?.secondary){const c=r.review_candidates.secondary;candidates=`<span class="review-candidates">${esc(providerLabel(r.review_candidates.provider))}：${esc(c.train_number||'空')} / ${esc(c.track_name||'空')}</span>`}const locked=reviewing||(!editAllMode&&!review);tr.innerHTML=`<td class="table-number">${esc(r.table_no)}</td><td class="fixed-time">${esc(r.time)}${badge}${candidates}</td><td><input aria-label="表号${r.table_no}车号" data-i="${i}" data-k="train_number" value="${esc(r.train_number)}" placeholder="空" ${locked?'readonly':''}></td><td><input aria-label="表号${r.table_no}股道" data-i="${i}" data-k="track_name" value="${esc(r.track_name)}" placeholder="空" ${locked?'readonly':''}></td>`;if(locked)tr.classList.add('locked-row');E.resultBody.appendChild(tr)});const phase=reviewing?'正在分批复核疑难行，结果暂时锁定；':verified?`${verified}行已完成双模型复核；`:'';E.summary.textContent=`${rows.length}条记录，${n}行需要人工确认；${phase}检测到${modified}行涂改，${conflicts}行涉及重复冲突。黄色行可直接修改；也可点击“编辑全部”修改任何结果。`;E.editAllBtn.disabled=reviewing;E.xlsxBtn.disabled=reviewing;E.editAllBtn.textContent=editAllMode?'完成全部编辑':'编辑全部车号/股道';E.editAllBtn.classList.toggle('active',editAllMode);E.resultCard.classList.remove('hidden');setCompareMode(true);if(!reviewing)requestAnimationFrame(()=>E.compareWorkspace.scrollIntoView({behavior:'smooth',block:'start'}))}
+function reviewAttempts(row){
+  const attempts=Array.isArray(row?.review_attempts)?row.review_attempts.filter(Boolean):[];
+  if(attempts.length)return attempts;
+  const secondary=row?.review_candidates?.secondary;
+  return secondary?[{provider:row.review_candidates.provider||'qwen',train_number:secondary.train_number,track_name:secondary.track_name,attempt:0}]:[];
+}
+function canRetrySingleRow(row){
+  return Boolean(
+    activeReviewSession&&
+    !reviewing&&
+    !isResolvedReviewStatus(row?.review_status)&&
+    activeReviewSession.tableNos.has(Number(row?.table_no))&&
+    Number(row?.review_retry_count||0)<MAX_SINGLE_REVIEW_RETRIES
+  );
+}
+function acceptReviewCandidate(index,attemptIndex=0){
+  if(reviewing||singleReviewInFlight)return;
+  const row=rows[index],review=row?.review_candidates,candidate=reviewAttempts(row)[attemptIndex];
+  if(!row||!candidate)return;
+  const acceptedProvider=candidate.provider||review?.provider||'qwen';
+  const trainNumber=String(candidate.train_number??'').trim();
+  const trackName=normalizeTrackName(candidate.track_name);
+  if(!trainNumber&&!trackName)return status(E.status,'该次复核没有给出可采用的车号或股道。','error');
+  if(trainNumber)row.train_number=trainNumber;
+  if(trackName)row.track_name=trackName;
+  row.review_status='accepted_secondary';
+  row.accepted_review_provider=acceptedProvider;
+  row.review_candidates=null;
+  row.review_attempts=[];
+  row.review_reasons=[];
+  row.ambiguity=false;
+  revalidateRows();
+  render(false);
+  status(E.status,`已采用${providerLabel(acceptedProvider)}对表号 ${row.table_no} 的复核结果；尚未保存学习，可继续修改。`,'success');
+}
+async function retrySingleRow(index){
+  const row=rows[index];
+  if(!row||reviewing||singleReviewInFlight)return;
+  if(!activeReviewSession)return status(E.status,'本次识别的复核会话已失效，请重新识别原照片后再试。','error');
+  if(!activeReviewSession.tableNos.has(Number(row.table_no)))return status(E.status,`表号 ${row.table_no} 不在本次千问复核范围内。`,'error');
+  const retryCount=Number(row.review_retry_count||0);
+  if(retryCount>=MAX_SINGLE_REVIEW_RETRIES)return status(E.status,`表号 ${row.table_no} 已达到再次复核上限，请人工核对。`,'error');
+  const session=activeReviewSession;
+  singleReviewInFlight=true;
+  row.review_retrying=true;
+  render(false);
+  status(E.status,`正在使用高清完整照片重新复核表号 ${row.table_no}，只判断这一行……`);
+  try{
+    const d=await api('/recognize',{
+      method:'POST',
+      headers:headers(),
+      body:JSON.stringify({
+        mode:'review',
+        review_token:session.token,
+        image:session.image,
+        config:reviewConfig([row.table_no]),
+        provider:session.provider,
+        focus_table_no:row.table_no,
+        focus_instruction:'只判断目标表号的车号和股道，可参考上下相邻行定位；不要改动其他表号。',
+        retry_attempt:retryCount+1
+      })
+    });
+    if(activeReviewSession!==session||rows[index]!==row)return;
+    const result=(Array.isArray(d.rows)?d.rows:[]).find(item=>Number(item.table_no)===Number(row.table_no));
+    const attempt={
+      provider:session.provider,
+      train_number:String(result?.train_number??'').trim(),
+      track_name:normalizeTrackName(result?.track_name),
+      attempt:retryCount+1
+    };
+    const attempts=reviewAttempts(row);
+    row.review_attempts=[...attempts,attempt];
+    row.review_retry_count=retryCount+1;
+    row.review_candidates={
+      provider:session.provider,
+      primary:row.review_candidates?.primary||{train_number:row.train_number,track_name:row.track_name},
+      secondary:row.review_candidates?.secondary||{train_number:attempt.train_number,track_name:attempt.track_name}
+    };
+    row.review_status=attempt.train_number||attempt.track_name?'disagreed':'uncertain';
+    row.review_reasons=(row.review_reasons||[]).filter(reason=>!/自动复核失败|复核模型仍不确定/.test(reason));
+    row.review_reasons.push(attempt.train_number||attempt.track_name?'再次复核结果待人工选择':'复核模型仍不确定');
+    row.ambiguity=true;
+    revalidateRows();
+    showQuota(d.usage);
+    const remaining=MAX_SINGLE_REVIEW_RETRIES-row.review_retry_count;
+    status(E.status,attempt.train_number||attempt.track_name?`表号 ${row.table_no} 再次复核完成。请对照原照片选择结果；${remaining?`还可再次复核 ${remaining} 次。`:'已达到再次复核上限。'}`:`表号 ${row.table_no} 再次复核仍未得到可用结果，请人工核对。`,'success');
+  }catch(error){
+    if(activeReviewSession!==session||rows[index]!==row)return;
+    if(error.status===401){state.setToken('');authUI(false)}
+    status(E.status,`表号 ${row.table_no} 再次复核失败：${error.message}`,'error');
+  }finally{
+    row.review_retrying=false;
+    if(activeReviewSession===session){
+      singleReviewInFlight=false;
+      if(rows[index]===row)render(false);
+    }
+  }
+}
+function render(shouldScroll=true){
+  E.resultBody.innerHTML='';
+  let n=0,modified=0,conflicts=0,verified=0;
+  rows.forEach((r,i)=>{
+    const empty=!r.train_number||!r.track_name,review=Boolean(r.needs_review)||empty;
+    if(review)n++;
+    if(isResolvedReviewStatus(r.review_status))verified++;
+    if(r.train_modified||r.track_modified)modified++;
+    if((r.review_reasons||[]).some(x=>x.includes('重复')))conflicts++;
+    const tr=document.createElement('tr');
+    if(review)tr.classList.add('review');
+    if(r.review_status==='pending')tr.classList.add('reviewing-row');
+    if(isResolvedReviewStatus(r.review_status))tr.classList.add('review-agreed');
+    if(r.ambiguity)tr.classList.add('high-risk');
+    if(empty)tr.classList.add('empty');
+    const reasons=(r.review_reasons||[]).join('；')||r.note||'';
+    if(reasons)tr.title=`表号${r.table_no}：${reasons}`;
+    let badge=review?'<span class="row-alert">需核对</span>':'';
+    if(r.review_status==='pending')badge='<span class="review-badge pending">自动复核中</span>';
+    if(r.review_status==='agreed')badge='<span class="review-badge">双模型一致</span>';
+    if(r.review_status==='corrected')badge='<span class="review-badge">复核已更正</span>';
+    if(r.review_status==='accepted_secondary')badge='<span class="review-badge">已采用千问</span>';
+    if(r.review_status==='disagreed')badge='<span class="review-badge disagreed">双模型不一致</span>';
+    if(r.review_status==='failed')badge='<span class="review-badge disagreed">复核失败</span>';
+    if(r.review_status==='uncertain')badge='<span class="review-badge disagreed">复核仍不确定</span>';
+    if(r.review_retrying)badge='<span class="review-badge pending">再次复核中</span>';
+    const locked=reviewing||r.review_retrying||(!editAllMode&&!review);
+    tr.innerHTML=`<td class="table-number">${esc(r.table_no)}</td><td class="fixed-time">${esc(r.time)}${badge}</td><td><input aria-label="表号${r.table_no}车号" data-i="${i}" data-k="train_number" value="${esc(r.train_number)}" placeholder="空" ${locked?'readonly':''}></td><td><input aria-label="表号${r.table_no}股道" data-i="${i}" data-k="track_name" value="${esc(r.track_name)}" placeholder="空" ${locked?'readonly':''}></td>`;
+    if(locked)tr.classList.add('locked-row');
+    E.resultBody.appendChild(tr);
+    const attempts=reviewAttempts(r),canRetry=canRetrySingleRow(r),showReviewPanel=attempts.length||canRetry||r.review_retrying;
+    if(showReviewPanel&&!isResolvedReviewStatus(r.review_status)){
+      const primary=r.review_candidates?.primary||{train_number:r.train_number,track_name:r.track_name};
+      const retryCount=Number(r.review_retry_count||0);
+      const attemptCards=attempts.map((candidate,attemptIndex)=>{
+        const attemptNumber=Number(candidate.attempt||0);
+        const label=attemptNumber===0?`${providerLabel(candidate.provider)}首次复核`:`${providerLabel(candidate.provider)}再次复核 ${attemptNumber}`;
+        const hasValue=Boolean(String(candidate.train_number??'').trim()||String(candidate.track_name??'').trim());
+        return `<div class="review-choice-value secondary"><span>${esc(label)}</span><strong>${esc(candidate.train_number||'空')} / ${esc(candidate.track_name||'空')}</strong><button type="button" class="review-choice-btn compact-choice" data-accept-review="${i}" data-attempt="${attemptIndex}" ${hasValue&&!singleReviewInFlight?'':'disabled'}>采用这次结果</button></div>`;
+      }).join('');
+      const retryUnavailable=retryCount>=MAX_SINGLE_REVIEW_RETRIES?'已达到再次复核上限，请根据原照片选择或手工修改。':'再次复核会话已结束；如仍需复核，请重新识别原照片。';
+      const retryButton=canRetry||r.review_retrying?`<button type="button" class="review-retry-btn" data-retry-review="${i}" ${singleReviewInFlight?'disabled':''}>${r.review_retrying?'正在再次复核……':`再次复核本行（剩余 ${MAX_SINGLE_REVIEW_RETRIES-retryCount} 次）`}</button>`:`<div class="review-retry-limit">${retryUnavailable}</div>`;
+      const choice=document.createElement('tr');
+      choice.className='review-choice-row';
+      choice.innerHTML=`<td colspan="4"><div class="review-choice-panel"><div class="review-choice-title">表号 ${esc(r.table_no)}：请选择正确结果</div><div class="review-choice-values"><div class="review-choice-value"><span>豆包主识别</span><strong>${esc(primary.train_number||'空')} / ${esc(primary.track_name||'空')}</strong></div>${attemptCards}</div>${retryButton}<p>再次复核使用高清完整原图，只判断本行；选择结果后仍需最后点击“确认无误、保存学习并下载 XLSX”。</p></div></td>`;
+      E.resultBody.appendChild(choice);
+    }
+  });
+  const phase=reviewing?'正在分批复核疑难行，结果暂时锁定；':verified?`${verified}行已完成双模型复核；`:'';
+  E.summary.textContent=`${rows.length}条记录，${n}行需要人工确认；${phase}检测到${modified}行涂改，${conflicts}行涉及重复冲突。黄色行可直接修改；也可点击“编辑全部”修改任何结果。`;
+  E.editAllBtn.disabled=reviewing||singleReviewInFlight;
+  E.xlsxBtn.disabled=reviewing||singleReviewInFlight;
+  E.editAllBtn.textContent=editAllMode?'完成全部编辑':'编辑全部车号/股道';
+  E.editAllBtn.classList.toggle('active',editAllMode);
+  E.resultCard.classList.remove('hidden');
+  setCompareMode(true);
+  if(!reviewing&&shouldScroll)requestAnimationFrame(()=>E.compareWorkspace.scrollIntoView({behavior:'smooth',block:'start'}));
+}
 
 async function debugModel(){
   if(!state.token){status(E.authStatus,'请先完成设备授权。','error');return}
@@ -126,6 +286,7 @@ async function debugModel(){
 }
 async function recognize(){
   if(!file)return;
+  clearReviewSession();
   const chosen=selectedProvider();
   E.recognizeBtn.disabled=true;E.progress.classList.remove('hidden');
   let timer=null,phase=`${providerLabel(chosen)}正在识别当前配置的 ${sheetConfig.entries.length} 个表号`;
@@ -154,6 +315,12 @@ async function recognize(){
       return;
     }
 
+    activeReviewSession={
+      token:reviewInfo.token,
+      provider:reviewInfo.provider||'qwen',
+      image:reviewImage,
+      tableNos:new Set(reviewInfo.table_nos.map(Number))
+    };
     const selected=new Set(reviewInfo.table_nos.map(Number));
     rows.forEach(r=>{if(selected.has(r.table_no))r.review_status='pending'});
     reviewing=true;render();
@@ -421,4 +588,44 @@ if(photoStage){
 
 if(E.resetZoomBtn) E.resetZoomBtn.onclick=resetPhotoZoom;
 
-E.settingsBtn.onclick=()=>{const opening=E.settingsPanel.classList.contains('hidden');E.settingsPanel.classList.toggle('hidden');if(opening)openConfigEditor()};E.closeSettings.onclick=()=>E.settingsPanel.classList.add('hidden');E.saveWorker.onclick=()=>{localStorage.setItem('ts_worker',E.workerUrl.value.trim().replace(/\/+$/,''));check()};E.debugModelBtn.onclick=debugModel;E.logoutBtn.onclick=()=>{state.setToken('');authUI(false);status(E.authStatus,'本机令牌已删除。','success')};E.authorizeBtn.onclick=authorize;E.imageInput.onchange=()=>{const f=E.imageInput.files?.[0];if(!f)return;if(!/^image\/(jpeg|png|webp)$/.test(f.type))return status(E.status,'只支持JPG、PNG或WebP。','error');if(f.size>12*1024*1024)return status(E.status,'原图不能超过12MB。','error');file=f;resetPhotoZoom();E.preview.src=URL.createObjectURL(f);E.previewWrap.classList.remove('hidden');E.recognizeBtn.disabled=false;status(E.status,'照片已选择。')};E.removeImage.onclick=resetImage;E.recognizeBtn.onclick=recognize;E.resultBody.oninput=e=>{const x=e.target.closest('input[data-i]');if(x){const i=Number(x.dataset.i),k=x.dataset.k;rows[i][k]=k==='track_name'?normalizeTrackName(x.value):x.value.trim();if(k==='track_name'&&document.activeElement!==x)x.value=rows[i][k]}};E.resultBody.onchange=e=>{const x=e.target.closest('input[data-i]');if(x&&x.dataset.k==='track_name'){rows[Number(x.dataset.i)].track_name=normalizeTrackName(x.value);x.value=rows[Number(x.dataset.i)].track_name}};E.editAllBtn.onclick=()=>{if(reviewing)return;editAllMode=!editAllMode;render();status(E.status,editAllMode?'已开放全部车号和股道，可逐项修改。':'已结束全部编辑；黄色行仍可继续修改。','success')};E.clearResult.onclick=()=>{rows=[];originalRows=[];editAllMode=false;reviewing=false;E.resultCard.classList.add('hidden');setCompareMode(false)};E.copyBtn.onclick=async()=>{const t=[['表号','车号','时间','股道'],...rows.map(r=>[r.table_no,r.train_number,r.time,r.track_name])].map(x=>x.join('\t')).join('\n');try{await navigator.clipboard.writeText(t);status(E.status,'已复制，可粘贴到WPS或Excel。','success')}catch{status(E.status,'复制失败，请导出XLSX。','error')}};E.csvBtn.onclick=exportCsv;E.xlsxBtn.onclick=exportXlsx;document.querySelectorAll('input[name="recognitionMode"]').forEach(input=>{input.checked=input.value===state.recognitionMode;input.addEventListener('change',()=>{if(!input.checked)return;state.setRecognitionMode(input.value);updateProviderHint();const message=input.value==='smart'?'已选择智能识别：豆包主识别，千问复核。':'已选择快速识别：仅使用豆包。';status(E.status,message,'success')})});updateProviderHint();E.workerUrl.value=state.base;openConfigEditor();authUI(!!state.token);check();if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+E.settingsBtn.onclick=()=>{const opening=E.settingsPanel.classList.contains('hidden');E.settingsPanel.classList.toggle('hidden');if(opening)openConfigEditor()};
+E.closeSettings.onclick=()=>E.settingsPanel.classList.add('hidden');
+E.saveWorker.onclick=()=>{localStorage.setItem('ts_worker',E.workerUrl.value.trim().replace(/\/+$/,''));check()};
+E.debugModelBtn.onclick=debugModel;
+E.logoutBtn.onclick=()=>{state.setToken('');authUI(false);status(E.authStatus,'本机令牌已删除。','success')};
+E.authorizeBtn.onclick=authorize;
+E.imageInput.onchange=()=>{
+  const f=E.imageInput.files?.[0];
+  if(!f)return;
+  if(!/^image\/(jpeg|png|webp)$/.test(f.type))return status(E.status,'只支持JPG、PNG或WebP。','error');
+  if(f.size>12*1024*1024)return status(E.status,'原图不能超过12MB。','error');
+  clearReviewSession();
+  file=f;
+  resetPhotoZoom();
+  E.preview.src=URL.createObjectURL(f);
+  E.previewWrap.classList.remove('hidden');
+  E.recognizeBtn.disabled=false;
+  status(E.status,'照片已选择。');
+};
+E.removeImage.onclick=resetImage;
+E.recognizeBtn.onclick=recognize;
+E.resultBody.onclick=e=>{
+  const acceptButton=e.target.closest('[data-accept-review]');
+  if(acceptButton)return acceptReviewCandidate(Number(acceptButton.dataset.acceptReview),Number(acceptButton.dataset.attempt||0));
+  const retryButton=e.target.closest('[data-retry-review]');
+  if(retryButton)retrySingleRow(Number(retryButton.dataset.retryReview));
+};
+E.resultBody.oninput=e=>{const x=e.target.closest('input[data-i]');if(x){const i=Number(x.dataset.i),k=x.dataset.k;rows[i][k]=k==='track_name'?normalizeTrackName(x.value):x.value.trim();if(k==='track_name'&&document.activeElement!==x)x.value=rows[i][k]}};
+E.resultBody.onchange=e=>{const x=e.target.closest('input[data-i]');if(x&&x.dataset.k==='track_name'){rows[Number(x.dataset.i)].track_name=normalizeTrackName(x.value);x.value=rows[Number(x.dataset.i)].track_name}};
+E.editAllBtn.onclick=()=>{if(reviewing||singleReviewInFlight)return;editAllMode=!editAllMode;render();status(E.status,editAllMode?'已开放全部车号和股道，可逐项修改。':'已结束全部编辑；黄色行仍可继续修改。','success')};
+E.clearResult.onclick=()=>{clearReviewSession();rows=[];originalRows=[];editAllMode=false;reviewing=false;E.resultCard.classList.add('hidden');setCompareMode(false)};
+E.copyBtn.onclick=async()=>{const t=[['表号','车号','时间','股道'],...rows.map(r=>[r.table_no,r.train_number,r.time,r.track_name])].map(x=>x.join('\t')).join('\n');try{await navigator.clipboard.writeText(t);status(E.status,'已复制，可粘贴到WPS或Excel。','success')}catch{status(E.status,'复制失败，请导出XLSX。','error')}};
+E.csvBtn.onclick=exportCsv;
+E.xlsxBtn.onclick=exportXlsx;
+document.querySelectorAll('input[name="recognitionMode"]').forEach(input=>{input.checked=input.value===state.recognitionMode;input.addEventListener('change',()=>{if(!input.checked)return;state.setRecognitionMode(input.value);updateProviderHint();const message=input.value==='smart'?'已选择智能识别：豆包主识别，千问复核。':'已选择快速识别：仅使用豆包。';status(E.status,message,'success')})});
+updateProviderHint();
+E.workerUrl.value=state.base;
+openConfigEditor();
+authUI(!!state.token);
+check();
+if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});

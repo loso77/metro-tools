@@ -1,4 +1,4 @@
-const CACHE_NAME = "metro-tools-v2.8.0-train-paged-results";
+const CACHE_NAME = "metro-tools-v2.8.2-single-row-review";
 const APP_ASSETS = [
   "./",
   "./index.html",
@@ -10,6 +10,7 @@ const APP_ASSETS = [
   "./train-query/manifest.json",
   "./train-query/sw.js",
   "./trainsheet-ai/",
+  "./trainsheet-ai/?v=2.7.9",
   "./trainsheet-ai/index.html",
   "./trainsheet-ai/style.css",
   "./trainsheet-ai/app.js",

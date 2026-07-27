@@ -397,3 +397,127 @@ tr.high-risk{background:#ffe4e6!important}
   .compare-workspace.has-results .actions{display:grid;grid-template-columns:1fr 1fr;gap:6px}
   .compare-workspace.has-results .actions button{margin-top:6px;padding:8px;font-size:11px}
 }
+
+/* V2.7.8：双模型不一致时，完整展示候选值并允许人工采用复核结果 */
+.compare-workspace.has-results .result-card .review-choice-row td{
+  width:auto!important;
+  padding:0 5px 9px!important;
+  white-space:normal!important;
+  overflow:visible!important;
+  text-overflow:clip!important;
+  background:#fff8db;
+  text-align:left;
+}
+.review-choice-panel{
+  display:grid;
+  gap:7px;
+  padding:9px;
+  border:1px solid #f0c36a;
+  border-radius:11px;
+  background:#fffdf4;
+}
+.review-choice-title{
+  color:#7a2e0e;
+  font-size:12px;
+  font-weight:800;
+  line-height:1.35;
+}
+.review-choice-values{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:6px;
+}
+.review-choice-value{
+  min-width:0;
+  padding:7px 8px;
+  border-radius:9px;
+  background:#fff;
+  color:#475467;
+  line-height:1.35;
+}
+.review-choice-value span{
+  display:block;
+  font-size:10px;
+  font-weight:700;
+}
+.review-choice-value strong{
+  display:block;
+  margin-top:2px;
+  color:#101828;
+  font-size:13px;
+  overflow-wrap:anywhere;
+}
+.review-choice-value.secondary{
+  background:#eef4ff;
+}
+.review-choice-value.secondary strong{
+  color:#1d4ed8;
+}
+.review-choice-btn{
+  width:100%;
+  min-height:44px;
+  border:0;
+  border-radius:10px;
+  padding:9px;
+  background:#2563eb;
+  color:#fff;
+  font-size:12px;
+  font-weight:800;
+  cursor:pointer;
+  touch-action:manipulation;
+}
+.review-choice-btn:active{transform:scale(.985)}
+.review-choice-btn.compact-choice{
+  min-height:38px;
+  margin-top:7px;
+  padding:7px;
+  font-size:11px;
+}
+.review-choice-btn:disabled,
+.review-retry-btn:disabled{
+  cursor:default;
+  opacity:.58;
+}
+.review-retry-btn{
+  width:100%;
+  min-height:44px;
+  border:1px solid #2563eb;
+  border-radius:10px;
+  padding:9px;
+  background:#fff;
+  color:#1d4ed8;
+  font-size:12px;
+  font-weight:800;
+  cursor:pointer;
+  touch-action:manipulation;
+}
+.review-retry-btn:active{transform:scale(.985)}
+.review-retry-limit{
+  padding:7px 8px;
+  border-radius:9px;
+  background:#f2f4f7;
+  color:#667085;
+  font-size:10px;
+  line-height:1.4;
+  text-align:center;
+}
+.review-choice-panel p{
+  margin:0;
+  color:#667085;
+  font-size:10px;
+  line-height:1.4;
+}
+.review-badge{
+  white-space:normal;
+  overflow-wrap:anywhere;
+}
+@media(max-width:760px){
+  .review-choice-values{grid-template-columns:1fr}
+  .compare-workspace.has-results .result-card .review-choice-row td{
+    width:auto!important;
+    padding:0 2px 7px!important;
+    font-size:11px;
+  }
+  .review-choice-panel{gap:6px;padding:7px}
+  .review-choice-value{padding:6px 7px}
+}
