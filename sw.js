@@ -1,11 +1,11 @@
-const CACHE_NAME = "metro-tools-v2.8.7-train-table-label";
+const CACHE_NAME = "metro-tools-v2.8.8-table-train-label";
 const APP_ASSETS = [
   "./",
   "./index.html",
   "./manifest.webmanifest",
   "./icon.svg",
   "./train-query/",
-  "./train-query/?v=2.8.2",
+  "./train-query/?v=2.8.3",
   "./train-query/index.html",
   "./train-query/manifest.json",
   "./train-query/sw.js",

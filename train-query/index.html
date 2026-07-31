@@ -1555,6 +1555,11 @@ function query(openResultPage = true) {
         : (linkedTableNumbers.length ? ' · 表号 ' + linkedTableNumbers.join('、') : '')))
     : ('表号 ' + raw);
   const resultSubject = queryType === 'train' ? '车次' : '表号';
+  function resultQueryTagFor(rec) {
+    if (queryType === 'train') return resultQueryTag;
+    const trainNumber = String(rec && rec.c || '').trim();
+    return resultQueryTag + (trainNumber ? ' · 车次 ' + trainNumber : '');
+  }
 
   const ns = queryTime.sec, nt = queryTime.text;
 
@@ -1643,7 +1648,7 @@ function query(openResultPage = true) {
       const atDepot = isDepot(r.s);
       el.innerHTML = `
         <div class="divider"></div>
-        <div class="query-tag">${resultQueryTag}</div>
+        <div class="query-tag">${resultQueryTagFor(r)}</div>
         <div class="result-badge ${atDepot ? 'badge-depot' : 'badge-stopping'}">${atDepot ? (queryTime.custom ? '■ 位于车辆段' : '■ 当前位于车辆段') : (queryTime.custom ? '● 停靠车站' : '● 当前停靠')}</div>
         <div class="big-station">${dispName(r.s)}</div>
         <div class="route-row">
@@ -1722,7 +1727,7 @@ function query(openResultPage = true) {
         }
         el.innerHTML = `
           <div class="divider"></div>
-          <div class="query-tag">${resultQueryTag}</div>
+          <div class="query-tag">${resultQueryTagFor(r)}</div>
           <div class="result-badge badge-running">▶ 区间运行中</div>
           <div class="between-wrap">
             <div class="between-sta">${dispName(dispFromSta)}${fromTag}</div>
@@ -1752,7 +1757,7 @@ function query(openResultPage = true) {
   if (crossGap > 0 && crossGap <= 2 * 3600 && isTimeInRange(ns, crossStart, crossEnd, false)) {
     el.innerHTML = `
       <div class="divider"></div>
-      <div class="query-tag">${resultQueryTag}</div>
+      <div class="query-tag">${resultQueryTagFor(lastRec)}</div>
       <div class="result-badge badge-running">▶ 区间运行中</div>
       <div class="between-wrap">
         <div class="between-sta">${dispName(lastRec.s)}</div>
