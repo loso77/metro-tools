@@ -1501,6 +1501,8 @@ function query(openResultPage = true) {
 
   // 自动判断：4位数=车次，2~3位数=表号
   let records = null;
+  // 出入库信息需要整张车表；车次查询仍只用该车次的记录判断当前位置。
+  let depotRecords = null;
   let queryType = '';
   let queryLabel = '';
   if (/^[0-9]{4}$/.test(raw)) {
@@ -1522,6 +1524,15 @@ function query(openResultPage = true) {
       el.innerHTML = '<p class="error-msg">未找到车次「'+raw+'」的数据</p>';
       return;
     }
+    // 普通车次可由记录中的表号反查整张车表，从而显示与表号查询相同的
+    // 全日出库/回库信息。无表号的加开车次则保留自身记录作为后备。
+    const linkedTables = [...new Set(
+      found.map(r => String(r.t || '').trim()).filter(Boolean)
+    )];
+    const linkedTableRecords = linkedTables.flatMap(t =>
+      DATA[t] || DATA[t.padStart(2, '0')] || []
+    );
+    depotRecords = linkedTableRecords.length ? linkedTableRecords : found;
     found.sort((a,b) => a.a < b.a ? -1 : (a.a > b.a ? 1 : 0));
     records = found;
     window.__isExtraTrain = isExtra;
@@ -1534,6 +1545,7 @@ function query(openResultPage = true) {
       el.innerHTML = '<p class="error-msg">未找到表号「'+raw+'」的数据</p>';
       return;
     }
+    depotRecords = records;
   }
 
   const ns = queryTime.sec, nt = queryTime.text;
@@ -1566,16 +1578,27 @@ function query(openResultPage = true) {
       return n;
     }
     const events = [];
-    for (const rec of records) {
+    const seenEvents = new Set();
+    let depotFirstDepartSec = -1;
+    for (const rec of (depotRecords || records)) {
       if (isDepot(rec.o) && rec.s === rec.o) {
-        events.push({ t: toSec(rec.p), html: shortDepot(rec.o) + ' ' + rec.p + ' 出库' });
+        const eventKey = 'out|' + rec.o + '|' + rec.p;
+        if (depotFirstDepartSec < 0) depotFirstDepartSec = toSec(rec.p);
+        if (!seenEvents.has(eventKey)) {
+          seenEvents.add(eventKey);
+          events.push({ t: toSec(rec.p), html: shortDepot(rec.o) + ' ' + rec.p + ' 出库' });
+        }
       }
       if (isDepot(rec.s) && rec.e === rec.s) {
-        events.push({ t: toSec(rec.a), html: shortDepot(rec.e) + ' ' + rec.a + ' 回库' });
+        const eventKey = 'in|' + rec.e + '|' + rec.a;
+        if (!seenEvents.has(eventKey)) {
+          seenEvents.add(eventKey);
+          events.push({ t: toSec(rec.a), html: shortDepot(rec.e) + ' ' + rec.a + ' 回库' });
+        }
       }
     }
     // 以首班出库为运营周期起点：早于首班出库的事件(跨日凌晨回库)排到最后
-    const fdSec = firstDepartSec >= 0 ? firstDepartSec : 0;
+    const fdSec = depotFirstDepartSec >= 0 ? depotFirstDepartSec : 0;
     events.sort((a,b) => {
       const ka = a.t < fdSec ? a.t + 86400 : a.t;
       const kb = b.t < fdSec ? b.t + 86400 : b.t;
