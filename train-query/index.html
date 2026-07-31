@@ -1503,6 +1503,7 @@ function query(openResultPage = true) {
   let records = null;
   // 出入库信息需要整张车表；车次查询仍只用该车次的记录判断当前位置。
   let depotRecords = null;
+  let linkedTableNumbers = [];
   let queryType = '';
   let queryLabel = '';
   if (/^[0-9]{4}$/.test(raw)) {
@@ -1526,10 +1527,10 @@ function query(openResultPage = true) {
     }
     // 普通车次可由记录中的表号反查整张车表，从而显示与表号查询相同的
     // 全日出库/回库信息。无表号的加开车次则保留自身记录作为后备。
-    const linkedTables = [...new Set(
+    linkedTableNumbers = [...new Set(
       found.map(r => String(r.t || '').trim()).filter(Boolean)
     )];
-    const linkedTableRecords = linkedTables.flatMap(t =>
+    const linkedTableRecords = linkedTableNumbers.flatMap(t =>
       DATA[t] || DATA[t.padStart(2, '0')] || []
     );
     depotRecords = linkedTableRecords.length ? linkedTableRecords : found;
@@ -1547,6 +1548,13 @@ function query(openResultPage = true) {
     }
     depotRecords = records;
   }
+
+  const resultQueryTag = queryType === 'train'
+    ? ('车次 ' + raw + (window.__isExtraTrain
+        ? ' · 无表号'
+        : (linkedTableNumbers.length ? ' · 表号 ' + linkedTableNumbers.join('、') : '')))
+    : ('表号 ' + raw);
+  const resultSubject = queryType === 'train' ? '车次' : '表号';
 
   const ns = queryTime.sec, nt = queryTime.text;
 
@@ -1635,7 +1643,7 @@ function query(openResultPage = true) {
       const atDepot = isDepot(r.s);
       el.innerHTML = `
         <div class="divider"></div>
-        <div class="query-tag">${queryType==='train' ? ('车次 '+raw+(window.__isExtraTrain ? ' · 无表号' : (' · 表号 '+r.t))) : ('表号 '+raw)}</div>
+        <div class="query-tag">${resultQueryTag}</div>
         <div class="result-badge ${atDepot ? 'badge-depot' : 'badge-stopping'}">${atDepot ? (queryTime.custom ? '■ 位于车辆段' : '■ 当前位于车辆段') : (queryTime.custom ? '● 停靠车站' : '● 当前停靠')}</div>
         <div class="big-station">${dispName(r.s)}</div>
         <div class="route-row">
@@ -1660,10 +1668,10 @@ function query(openResultPage = true) {
         const endTime = endReturnRec ? endReturnRec.a : records[records.length-1].p;
         el.innerHTML = `
           <div class="divider"></div>
-          <div class="query-tag">${queryType==='train' ? ('车次 '+raw+(window.__isExtraTrain ? ' · 无表号' : (' · 表号 '+r.t))) : ('表号 '+raw)}</div>
+          <div class="query-tag">${resultQueryTag}</div>
           <div class="result-badge badge-depot">■ 位于车辆段</div>
           <div class="big-station">${dispName(firstDepartRec.o)}</div>
-          <p style="color:#4a5568;font-size:15px;margin-bottom:8px;">表号 <strong>${raw}</strong> 在 ${nt} 等待出库</p>
+          <p style="color:#4a5568;font-size:15px;margin-bottom:8px;">${resultSubject} <strong>${raw}</strong> 在 ${nt} 等待出库</p>
           <div class="time-info">
             <div class="time-row"><span>运营开始${sd}</span><span class="time-val">${firstDepartRec.p}</span></div>
             <div class="time-row"><span>运营结束${ed}</span><span class="time-val">${endTime}</span></div>
@@ -1674,7 +1682,7 @@ function query(openResultPage = true) {
       // 出库时刻 = 下一条记录的发点(即该车下次从段内出发)
       el.innerHTML = `
         <div class="divider"></div>
-        <div class="query-tag">${queryType==='train' ? ('车次 '+raw+(window.__isExtraTrain ? ' · 无表号' : (' · 表号 '+r.t))) : ('表号 '+raw)}</div>
+        <div class="query-tag">${resultQueryTag}</div>
         <div class="result-badge badge-depot">■ 车辆已回库</div>
         <div class="big-station">${dispName(r.s)}</div>
         <div class="time-info">
@@ -1714,7 +1722,7 @@ function query(openResultPage = true) {
         }
         el.innerHTML = `
           <div class="divider"></div>
-          <div class="query-tag">${queryType==='train' ? ('车次 '+raw+(window.__isExtraTrain ? ' · 无表号' : (' · 表号 '+r.t))) : ('表号 '+raw)}</div>
+          <div class="query-tag">${resultQueryTag}</div>
           <div class="result-badge badge-running">▶ 区间运行中</div>
           <div class="between-wrap">
             <div class="between-sta">${dispName(dispFromSta)}${fromTag}</div>
@@ -1744,7 +1752,7 @@ function query(openResultPage = true) {
   if (crossGap > 0 && crossGap <= 2 * 3600 && isTimeInRange(ns, crossStart, crossEnd, false)) {
     el.innerHTML = `
       <div class="divider"></div>
-      <div class="query-tag">${queryType==='train' ? ('车次 '+raw+(window.__isExtraTrain ? ' · 无表号' : (' · 表号 '+lastRec.t))) : ('表号 '+raw)}</div>
+      <div class="query-tag">${resultQueryTag}</div>
       <div class="result-badge badge-running">▶ 区间运行中</div>
       <div class="between-wrap">
         <div class="between-sta">${dispName(lastRec.s)}</div>
@@ -1767,7 +1775,7 @@ function query(openResultPage = true) {
   if (isDepot(lastRec.s) && lastRec.e === lastRec.s && ns > toSec(lastRec.a)) {
     el.innerHTML = `
       <div class="divider"></div>
-      <div class="query-tag">${queryType==='train' ? ('车次 '+raw+(window.__isExtraTrain ? ' · 无表号' : (' · 表号 '+lastRec.t))) : ('表号 '+raw)}</div>
+      <div class="query-tag">${resultQueryTag}</div>
       <div class="result-badge badge-depot">■ 车辆已回库</div>
       <div class="big-station">${dispName(lastRec.s)}</div>
       <div class="time-info">
@@ -1789,9 +1797,9 @@ function query(openResultPage = true) {
   const endTime2 = endReturnRec ? endReturnRec.a : last.p;
   el.innerHTML = `
     <div class="divider"></div>
-    <div class="query-tag">${queryType==='train' ? ('车次 '+raw+(window.__isExtraTrain ? ' · 无表号' : '')) : ('表号 '+raw)}</div>
+    <div class="query-tag">${resultQueryTag}</div>
     <div class="result-badge badge-none">○ 不在运营时段</div>
-    <p style="color:#4a5568;font-size:15px;margin-bottom:8px;">表号 <strong>${raw}</strong> 在 ${nt} 无运行记录</p>
+    <p style="color:#4a5568;font-size:15px;margin-bottom:8px;">${resultSubject} <strong>${raw}</strong> 在 ${nt} 无运行记录</p>
     <div class="time-info">
       <div class="time-row"><span>运营开始${startDepot}</span><span class="time-val">${startTime}</span></div>
       <div class="time-row"><span>运营结束${endDepot}</span><span class="time-val">${endTime2}</span></div>
