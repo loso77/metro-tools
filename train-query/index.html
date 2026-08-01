@@ -1588,9 +1588,7 @@ function query(openResultPage = true) {
   }
 
   const resultQueryTag = queryType === 'train'
-    ? ('车次 ' + raw + (window.__isExtraTrain
-        ? ' · 无表号'
-        : (linkedTableNumbers.length ? ' · 表号 ' + linkedTableNumbers.join('、') : '')))
+    ? ('车次 ' + raw + (window.__isExtraTrain ? ' · 无表号' : ''))
     : ('表号 ' + raw);
   const resultSubject = queryType === 'train' ? '车次' : '表号';
   function resultQueryTagFor(rec) {
