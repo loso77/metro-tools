@@ -1,11 +1,11 @@
-const CACHE_NAME = "metro-tools-v2.8.9-station-arrival-label";
+const CACHE_NAME = "metro-tools-v2.8.10-linked-table-shortcut";
 const APP_ASSETS = [
   "./",
   "./index.html",
   "./manifest.webmanifest",
   "./icon.svg",
   "./train-query/",
-  "./train-query/?v=2.8.4",
+  "./train-query/?v=2.8.5",
   "./train-query/index.html",
   "./train-query/manifest.json",
   "./train-query/sw.js",
