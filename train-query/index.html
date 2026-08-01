@@ -491,6 +491,12 @@ button:active { background: #1547b8; }
   color: #2d3748;
   font-variant-numeric: tabular-nums;
 }
+.srcol-arrival {
+  margin-left: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
 .srcol-route {
   display: block;
   font-size: 11px;
@@ -1420,7 +1426,7 @@ function appendStation(el, raw, station, queryType) {
     return list.map(r => {
       const hl = (r === nextRec) ? ' sr-next' : '';
       return '<div class="srcol-item' + hl + '">' +
-        '<span class="srcol-time">' + r.a + '</span>' +
+        '<span class="srcol-time">' + r.a + '<span class="srcol-arrival">到达' + dispName(r.s) + '</span></span>' +
         '<span class="srcol-route">' + dispName(r.o) + '→' + dispName(r.e) + '</span>' +
       '</div>';
     }).join('');
