@@ -481,6 +481,22 @@ button:active { background: #1547b8; }
   border-radius: 6px;
   font-variant-numeric: tabular-nums;
 }
+.bd-table-btn {
+  display: inline-block;
+  width: auto;
+  border: 1px solid #bfd3ff;
+  color: #1a56db;
+  background: #ebf2ff;
+  box-shadow: 0 1px 3px rgba(26,86,219,0.12);
+  cursor: pointer;
+}
+.bd-table-btn:active,
+.bd-table-btn.pressed {
+  color: #fff;
+  background: #1a56db;
+  transform: scale(0.96);
+  box-shadow: none;
+}
 .bd-no {
   font-size: 12px;
   font-weight: 500;
@@ -1355,12 +1371,16 @@ function showStationBoard(el, station) {
   function trainCell(r, type) {
     if (!r) return '<div class="bd-empty">—</div>';
     const shortTime = t => String(t || '').slice(0, 5);
+    const tableNumber = String(r.t || '').trim();
+    const tableControl = /^\d{1,3}$/.test(tableNumber)
+      ? '<button type="button" class="bd-table bd-table-btn" onclick="prepareTableQuery(\'' + tableNumber + '\')">表' + tableNumber + '</button>'
+      : '<span class="bd-table">表' + tableNumber + '</span>';
     let extra = '';
     if (type === 'app')   extra = '<span class="bd-sub">到 ' + shortTime(r.a) + '</span>';
     if (type === 'leave') extra = '<span class="bd-sub">发 ' + shortTime(r.p) + '</span>';
     if (type === 'stop')  extra = '<span class="bd-sub">' + shortTime(r.a) + ' 到 / ' + shortTime(r.p) + ' 发</span>';
     return '<div class="bd-train">' +
-           '<span class="bd-table">表'+r.t+'</span>' +
+           tableControl +
            '<span class="bd-no">'+r.c+'</span>' + extra + '</div>';
   }
 
@@ -1491,6 +1511,15 @@ function queryLinkedTable(tableNumber) {
   if (!input) return;
   input.value = normalized;
   query(true);
+}
+
+// 站点看板中的表号按钮：返回查询页并预填表号，不立即执行查询。
+function prepareTableQuery(tableNumber) {
+  const normalized = String(tableNumber || '').trim();
+  if (!/^\d{1,3}$/.test(normalized)) return;
+  clearAll();
+  const input = document.getElementById('tableInput');
+  if (input) input.value = normalized;
 }
 
 function query(openResultPage = true) {
