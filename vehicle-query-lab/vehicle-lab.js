@@ -25,6 +25,7 @@
   let reviewRows = [];
   let reviewFilter = 'flagged';
   let reviewPhotoIndex = 0;
+  let reviewSource = 'photo';
   let recognitionMeta = { dates: [], pageTypes: [], dateConflict: false };
   let activeVehicleQuery = '';
   let lastResolvedTable = '';
@@ -95,7 +96,7 @@
   }
 
   function recentDates() {
-    const start = defaultServiceDate();
+    const start = addDays(defaultServiceDate(), 1);
     return Array.from({ length: RETENTION_DAYS }, (_, index) => addDays(start, -index));
   }
 
@@ -316,8 +317,8 @@
       '</header>' +
 
       '<div class="vehicle-stage" id="vehicleUploadStage">' +
-        '<div class="vehicle-section-head"><div><h3>上传当日运行计划</h3><p class="vehicle-muted">一次选择三张，顺序不限。系统优先根据左侧表号范围自动分类，检修中心名称仅作辅助。</p></div></div>' +
-        '<div class="vehicle-fields-grid"><label class="vehicle-field">导入到运行日期<select id="vehicleImportDate"></select></label></div>' +
+        '<div class="vehicle-section-head"><div><h3>上传运行计划</h3><p class="vehicle-muted">一次选择三张，顺序不限。系统优先根据左侧表号范围自动分类，检修中心名称仅作辅助。</p></div></div>' +
+        '<div class="vehicle-auto-date-panel"><span>运行日期</span><strong>由三张照片自动识别</strong><small>无需提前选择；三张照片日期一致后，自动建立对应日期的数据。</small></div>' +
         '<label class="vehicle-upload-label">选择或拍摄三张照片<input id="vehiclePhotoInput" type="file" accept="image/jpeg,image/png,image/webp" multiple></label>' +
         '<div class="vehicle-photo-grid" id="vehiclePhotoGrid"></div>' +
         '<div class="vehicle-progress" id="vehicleRecognitionProgress"><span></span></div>' +
@@ -327,7 +328,7 @@
 
       '<div class="vehicle-stage" id="vehicleReviewStage">' +
         '<div class="vehicle-section-head"><div><h3>审核与人工校对</h3><p class="vehicle-muted" id="vehicleReviewSummary"></p></div><button type="button" class="vehicle-compact-button" id="vehicleReviewBack">重新上传</button></div>' +
-        '<div class="vehicle-review-toolbar"><div class="vehicle-filter-group"><button type="button" class="active" data-vehicle-filter="flagged">只看需确认</button><button type="button" data-vehicle-filter="all">查看全部</button></div><span class="vehicle-muted" id="vehicleReviewDateStatus"></span></div>' +
+        '<div class="vehicle-review-toolbar"><div class="vehicle-filter-group"><button type="button" class="active" data-vehicle-filter="flagged">只看需确认</button><button type="button" data-vehicle-filter="all">查看全部</button></div><label class="vehicle-manual-date-field" id="vehicleManualDateField" hidden>手工录入日期<select id="vehicleImportDate"></select></label><span class="vehicle-review-date-status" id="vehicleReviewDateStatus"></span></div>' +
         '<div class="vehicle-review-layout">' +
           '<div class="vehicle-review-photo"><img id="vehicleReviewPhoto" alt="运行计划原照片"><div class="vehicle-review-photo-controls"><button type="button" id="vehiclePreviousPhoto">上一张</button><button type="button" id="vehicleNextPhoto">下一张</button></div></div>' +
           '<div class="vehicle-table-wrap"><table class="vehicle-table"><thead><tr><th>表号</th><th>最终车号</th><th>识别说明</th></tr></thead><tbody id="vehicleReviewBody"></tbody></table></div>' +
@@ -364,7 +365,7 @@
     $('vehicleServiceDate').innerHTML = options;
     $('vehicleImportDate').innerHTML = dates.map(date => '<option value="' + date + '">' + formatDateLabel(date) + '</option>').join('');
     $('vehicleServiceDate').value = selectedServiceDate;
-    $('vehicleImportDate').value = selectedServiceDate;
+    if (!dates.includes($('vehicleImportDate').value)) $('vehicleImportDate').value = dates[0];
   }
 
   function refreshVehicleOptions() {
@@ -593,7 +594,6 @@
   }
 
   function openManager() {
-    $('vehicleImportDate').value = selectedServiceDate;
     document.body.classList.add('vehicle-manager-open');
     if (dayData(selectedServiceDate)) {
       renderManageStage();
@@ -803,6 +803,8 @@
         pageTypes,
         dateConflict: Boolean(response.date_conflict) || new Set(dates).size > 1
       };
+      reviewSource = 'photo';
+      $('vehicleManualDateField').hidden = true;
       revalidateReviewRows();
       renderPhotoCards();
       renderReviewRows();
@@ -818,7 +820,11 @@
   }
 
   function beginManualReview() {
+    revokePhotos();
+    reviewSource = 'manual';
     recognitionMeta = { dates: [], pageTypes: PAGE_TYPES.map(page => page.id), dateConflict: false };
+    $('vehicleManualDateField').hidden = false;
+    $('vehicleImportDate').value = recentDates()[0];
     reviewRows = ALL_TABLES.map(table => ({
       table,
       vehicle: '',
@@ -873,23 +879,32 @@
   }
 
   function updateReviewDateStatus() {
+    const status = $('vehicleReviewDateStatus');
+    status.classList.remove('success', 'error');
     const selected = $('vehicleImportDate').value;
+    if (reviewSource === 'manual') {
+      status.textContent = '手工录入日期：' + formatDateLabel(selected);
+      return;
+    }
     if (recognitionMeta.dateConflict) {
-      $('vehicleReviewDateStatus').textContent = '三张照片日期不一致，禁止保存';
+      status.textContent = '三张照片日期不一致，禁止保存';
+      status.classList.add('error');
       return;
     }
-    if (photos.length && recognitionMeta.dates.length !== 3) {
-      $('vehicleReviewDateStatus').textContent = '有照片未识别到日期，请重新拍摄或重新识别';
-      return;
-    }
-    if (!recognitionMeta.dates.length) {
-      $('vehicleReviewDateStatus').textContent = '手工录入日期：' + formatDateLabel(selected);
+    if (recognitionMeta.dates.length !== 3) {
+      status.textContent = '有照片未识别到日期，请重新拍摄或重新识别';
+      status.classList.add('error');
       return;
     }
     const recognized = recognitionMeta.dates[0];
-    $('vehicleReviewDateStatus').textContent = recognized === selected
-      ? '照片日期一致：' + formatDateLabel(recognized)
-      : '照片日期为' + formatDateLabel(recognized) + '，与选择日期不一致';
+    if (!recentDates().includes(recognized)) {
+      const dates = recentDates();
+      status.textContent = '照片日期为' + formatDateLabel(recognized) + '，不在可保存范围（' + formatDateLabel(dates[dates.length - 1]) + '至' + formatDateLabel(dates[0]) + '）';
+      status.classList.add('error');
+      return;
+    }
+    status.textContent = '已自动识别运行日期：' + formatDateLabel(recognized);
+    status.classList.add('success');
   }
 
   function showReviewPhoto(index) {
@@ -908,10 +923,10 @@
     revalidateReviewRows();
     const duplicateRows = reviewRows.filter(row => row.conflict);
     if (duplicateRows.length) return setReviewStatus('仍有重复车号，请修改后再保存。', 'error');
-    if (recognitionMeta.dateConflict) return setReviewStatus('三张照片日期不一致，不能保存。', 'error');
-    if (photos.length && recognitionMeta.dates.length !== 3) return setReviewStatus('有照片未识别到日期，不能保存，请重新拍摄或重新识别。', 'error');
-    const date = $('vehicleImportDate').value;
-    if (recognitionMeta.dates.length && recognitionMeta.dates.some(value => value !== date)) return setReviewStatus('照片日期与导入日期不一致，请切换到正确日期。', 'error');
+    if (reviewSource === 'photo' && recognitionMeta.dateConflict) return setReviewStatus('三张照片日期不一致，不能保存。', 'error');
+    if (reviewSource === 'photo' && recognitionMeta.dates.length !== 3) return setReviewStatus('有照片未识别到日期，不能保存，请重新拍摄或重新识别。', 'error');
+    const date = reviewSource === 'photo' ? recognitionMeta.dates[0] : $('vehicleImportDate').value;
+    if (!recentDates().includes(date)) return setReviewStatus('运行日期不在当前可保存范围内。', 'error');
     const base = {};
     reviewRows.forEach(row => {
       const vehicle = formatVehicle(row.vehicle);
@@ -925,7 +940,7 @@
       base,
       adjustments: [],
       importedAt: new Date().toISOString(),
-      source: photos.length ? 'ai-photo-review' : 'manual'
+      source: reviewSource === 'photo' ? 'ai-photo-review' : 'manual'
     };
     saveStore();
     selectedServiceDate = date;
