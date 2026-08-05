@@ -277,6 +277,10 @@
     return ranked[0][0];
   }
 
+  function brandMarkMarkup() {
+    return '<span class="vehicle-brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><rect x="4" y="3" width="16" height="14" rx="4"></rect><path d="M8 7h8M8 12h.01M16 12h.01M7 17l-2 4M17 17l2 4M7 21h10"></path></svg></span>';
+  }
+
   function buildInterface() {
     const dateLabel = $('dateLabel');
     const modeTabs = document.querySelector('.mode-tabs');
@@ -287,12 +291,31 @@
     const pageSubtitle = document.querySelector('body > .subtitle');
     const themeMeta = document.querySelector('meta[name="theme-color"]');
 
-    document.body.classList.add('vehicle-lab-dark');
-    if (pageTitle) pageTitle.textContent = '🚇 列车车号查询';
+    document.body.classList.add('vehicle-lab-dark', 'vehicle-lab-refined');
+    if (pageTitle) pageTitle.textContent = '列车车号查询';
     if (pageSubtitle) pageSubtitle.textContent = '实验功能 · 保留列车查询全部能力';
     if (themeMeta) themeMeta.setAttribute('content', '#000000');
 
-    dateLabel.insertAdjacentHTML('afterend', '<button type="button" class="vehicle-manager-launch" id="vehicleManagerLaunch">导入车号</button>');
+    if (pageTitle && pageSubtitle) {
+      const brand = document.createElement('header');
+      brand.className = 'vehicle-lab-brand';
+      pageTitle.insertAdjacentElement('beforebegin', brand);
+      brand.insertAdjacentHTML('afterbegin', brandMarkMarkup() + '<div class="vehicle-brand-copy"></div><span class="vehicle-lab-badge">实验版 v0.1</span>');
+      const copy = brand.querySelector('.vehicle-brand-copy');
+      copy.appendChild(pageTitle);
+      copy.appendChild(pageSubtitle);
+    }
+
+    const queryHero = document.createElement('div');
+    queryHero.className = 'vehicle-query-hero';
+    const queryCenter = document.createElement('div');
+    queryCenter.className = 'vehicle-query-center';
+    const clock = $('clock');
+    clock.insertAdjacentElement('beforebegin', queryHero);
+    queryHero.appendChild(queryCenter);
+    queryCenter.appendChild(clock);
+    queryCenter.appendChild(dateLabel);
+    queryHero.insertAdjacentHTML('beforeend', '<button type="button" class="vehicle-manager-launch" id="vehicleManagerLaunch">导入车号</button>');
     modeTabs.insertAdjacentHTML('beforebegin',
       '<div class="vehicle-date-panel" id="vehicleDatePanel" hidden>' +
         '<div class="vehicle-date-row"><label for="vehicleServiceDate">运行日期</label><select class="vehicle-date-select" id="vehicleServiceDate"></select></div>' +
@@ -320,9 +343,10 @@
   function managerMarkup() {
     return '<section class="vehicle-manager-page" id="vehicleManagerPage">' +
       '<header class="vehicle-manager-header">' +
-        '<div><h2>导入与管理车号</h2><p>照片只用于本次识别；保存后仅保留最近7个运营日的对应关系。</p></div>' +
+        '<div class="vehicle-manager-brand">' + brandMarkMarkup() + '<div><h2>导入与管理车号</h2><p>照片只用于本次识别；保存后仅保留最近7个运营日的对应关系。</p></div></div>' +
         '<button type="button" class="vehicle-compact-button" id="vehicleManagerBack">返回查询</button>' +
       '</header>' +
+      '<div class="vehicle-flow-steps" aria-label="车号导入流程"><span data-vehicle-step="upload">上传照片</span><span data-vehicle-step="review">审核校对</span><span data-vehicle-step="manage">车号管理</span></div>' +
 
       '<div class="vehicle-stage" id="vehicleUploadStage">' +
         '<div class="vehicle-section-head"><div><h3>上传运行计划</h3><p class="vehicle-muted">一次选择三张，顺序不限。系统优先根据左侧表号范围自动分类，检修中心名称仅作辅助。</p></div></div>' +
@@ -626,6 +650,7 @@
   function showManagerStage(name) {
     const stages = { upload: $('vehicleUploadStage'), review: $('vehicleReviewStage'), manage: $('vehicleManageStage') };
     Object.entries(stages).forEach(([key, element]) => element.classList.toggle('active', key === name));
+    document.querySelectorAll('[data-vehicle-step]').forEach(step => step.classList.toggle('active', step.dataset.vehicleStep === name));
     if (name === 'upload') setRecognitionStatus(photos.length ? '已选择' + photos.length + '张照片。' : '请选择三张照片。');
     if (name === 'manage') renderManageStage();
     window.scrollTo(0, 0);
