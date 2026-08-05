@@ -4,7 +4,7 @@
   "description": "保留完整列车查询并增加每日车号映射的实验版本",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#f0f4f8",
-  "theme_color": "#1a56db",
+  "background_color": "#000000",
+  "theme_color": "#000000",
   "orientation": "portrait"
 }

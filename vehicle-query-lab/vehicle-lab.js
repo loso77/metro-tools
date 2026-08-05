@@ -283,10 +283,18 @@
     const inputLabel = document.querySelector('.input-label');
     const inputRow = document.querySelector('.input-row');
     const tableInput = $('tableInput');
+    const pageTitle = document.querySelector('body > h1');
+    const pageSubtitle = document.querySelector('body > .subtitle');
+    const themeMeta = document.querySelector('meta[name="theme-color"]');
+
+    document.body.classList.add('vehicle-lab-dark');
+    if (pageTitle) pageTitle.textContent = '🚇 列车车号查询';
+    if (pageSubtitle) pageSubtitle.textContent = '实验功能 · 保留列车查询全部能力';
+    if (themeMeta) themeMeta.setAttribute('content', '#000000');
 
     dateLabel.insertAdjacentHTML('afterend', '<button type="button" class="vehicle-manager-launch" id="vehicleManagerLaunch">导入车号</button>');
     modeTabs.insertAdjacentHTML('beforebegin',
-      '<div class="vehicle-date-panel">' +
+      '<div class="vehicle-date-panel" id="vehicleDatePanel" hidden>' +
         '<div class="vehicle-date-row"><label for="vehicleServiceDate">运行日期</label><select class="vehicle-date-select" id="vehicleServiceDate"></select></div>' +
         '<div class="vehicle-data-status" id="vehicleDataStatus"></div>' +
       '</div>'
@@ -357,14 +365,17 @@
 
   function refreshDateOptions() {
     const dates = recentDates();
-    if (!dates.includes(selectedServiceDate)) selectedServiceDate = dates[0];
-    const options = dates.map(date => {
-      const data = dayData(date);
-      return '<option value="' + date + '">' + formatDateLabel(date) + (data ? '（已导入）' : '（未导入）') + '</option>';
-    }).join('');
-    $('vehicleServiceDate').innerHTML = options;
+    const importedDates = dates.filter(date => dayData(date));
+    $('vehicleDatePanel').hidden = importedDates.length === 0;
+    if (importedDates.length) {
+      if (!importedDates.includes(selectedServiceDate)) selectedServiceDate = importedDates[0];
+      $('vehicleServiceDate').innerHTML = importedDates.map(date => '<option value="' + date + '">' + formatDateLabel(date) + '</option>').join('');
+      $('vehicleServiceDate').value = selectedServiceDate;
+    } else {
+      if (!dates.includes(selectedServiceDate)) selectedServiceDate = defaultServiceDate();
+      $('vehicleServiceDate').innerHTML = '';
+    }
     $('vehicleImportDate').innerHTML = dates.map(date => '<option value="' + date + '">' + formatDateLabel(date) + '</option>').join('');
-    $('vehicleServiceDate').value = selectedServiceDate;
     if (!dates.includes($('vehicleImportDate').value)) $('vehicleImportDate').value = dates[0];
   }
 

@@ -1,4 +1,4 @@
-const CACHE = 'vehicle-query-lab-v0.1.1';
+const CACHE = 'vehicle-query-lab-v0.1.3';
 const APP_SHELL = ['./index.html', './manifest.json', './vehicle-lab.css', './vehicle-lab.js'];
 const NETWORK_TIMEOUT_MS = 1500;
 const INDEX_URL = new URL('./index.html', self.registration.scope).href;
