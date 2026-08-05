@@ -1,4 +1,4 @@
-const CACHE_NAME = "metro-tools-v2.8.12-station-table-shortcut";
+const CACHE_NAME = "metro-tools-v2.8.12-vehicle-lab-v0.1.3";
 const APP_ASSETS = [
   "./",
   "./index.html",
@@ -10,7 +10,7 @@ const APP_ASSETS = [
   "./train-query/manifest.json",
   "./train-query/sw.js",
   "./vehicle-query-lab/",
-  "./vehicle-query-lab/?v=0.1",
+  "./vehicle-query-lab/?v=0.1.3",
   "./vehicle-query-lab/index.html",
   "./vehicle-query-lab/vehicle-lab.css",
   "./vehicle-query-lab/vehicle-lab.js",
@@ -52,6 +52,24 @@ self.addEventListener("fetch", event => {
   if (event.request.method !== "GET") return;
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin || url.pathname.endsWith("/sw.js")) return;
+
+  if (event.request.mode === "navigate") {
+    event.respondWith(
+      fetch(event.request)
+        .then(response => {
+          if (response.ok && response.type === "basic") {
+            const copy = response.clone();
+            event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy)));
+          }
+          return response;
+        })
+        .catch(async () => {
+          return await caches.match(event.request, { ignoreSearch: true }) ||
+            await caches.match("./index.html", { ignoreSearch: true });
+        })
+    );
+    return;
+  }
 
   event.respondWith(
     caches.match(event.request).then(cached => {
