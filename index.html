@@ -78,7 +78,7 @@
       margin: 0 auto;
       padding: 4px;
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(4, 1fr);
       gap: 4px;
       border: 1px solid var(--line);
       border-radius: 14px;
@@ -174,6 +174,7 @@
       </div>
       <nav class="tabs" aria-label="工具选择">
         <button class="tab active" data-tool="train-query">列车查询</button>
+        <button class="tab" data-tool="vehicle-query-lab">车号实验</button>
         <button class="tab" data-tool="trainsheet-ai">车表识别</button>
         <button class="tab" data-tool="group-query">车组查询</button>
       </nav>
@@ -181,6 +182,7 @@
     <section class="workspace">
       <div class="loading" id="loading">正在加载工具…</div>
       <iframe class="tool-frame active" id="frame-train-query" src="./train-query/?v=2.8.7" title="列车查询" allow="clipboard-read; clipboard-write"></iframe>
+      <iframe class="tool-frame" id="frame-vehicle-query-lab" data-src="./vehicle-query-lab/?v=0.1" title="车号查询实验版 v0.1" allow="camera; clipboard-read; clipboard-write"></iframe>
       <iframe class="tool-frame" id="frame-trainsheet-ai" data-src="./trainsheet-ai/?v=2.7.12" title="车表识别" allow="camera; clipboard-read; clipboard-write"></iframe>
       <iframe class="tool-frame" id="frame-group-query" data-src="./group-query/?v=2.7.9" title="车组查询" allow="clipboard-read; clipboard-write"></iframe>
     </section>
@@ -188,6 +190,7 @@
   <script>
     const TOOLS = {
       "train-query": "./train-query/?v=2.8.7",
+      "vehicle-query-lab": "./vehicle-query-lab/?v=0.1",
       "trainsheet-ai": "./trainsheet-ai/?v=2.7.12",
       "group-query": "./group-query/?v=2.7.9"
     };
@@ -210,7 +213,7 @@
       if (!navigator.onLine) {
         text.textContent = offlineReady ? "当前已离线，工具仍可使用" : "当前离线，请先联网打开一次";
       } else {
-        text.textContent = offlineReady ? "三个工具的离线包已就绪" : "正在准备离线功能…";
+        text.textContent = offlineReady ? "四个工具的离线包已就绪" : "正在准备离线功能…";
       }
     }
 
