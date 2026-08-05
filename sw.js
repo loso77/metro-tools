@@ -1,4 +1,4 @@
-const CACHE_NAME = "metro-tools-v2.8.12-vehicle-lab-v0.1.3";
+const CACHE_NAME = "metro-tools-v2.8.12-vehicle-lab-v0.1.4";
 const APP_ASSETS = [
   "./",
   "./index.html",
@@ -10,7 +10,7 @@ const APP_ASSETS = [
   "./train-query/manifest.json",
   "./train-query/sw.js",
   "./vehicle-query-lab/",
-  "./vehicle-query-lab/?v=0.1.3",
+  "./vehicle-query-lab/?v=0.1.4",
   "./vehicle-query-lab/index.html",
   "./vehicle-query-lab/vehicle-lab.css",
   "./vehicle-query-lab/vehicle-lab.js",
