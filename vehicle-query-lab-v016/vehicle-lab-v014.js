@@ -292,25 +292,31 @@
     const queryPageMessage = $('queryPageMessage');
     const importSection = document.querySelector('.import-section');
     const cardLeft = document.querySelector('.card-left');
+    const card = document.querySelector('body > .card');
+    const installBanner = document.querySelector('body > .install-banner');
     const tableInput = $('tableInput');
     const pageTitle = document.querySelector('body > h1');
     const pageSubtitle = document.querySelector('body > .subtitle');
     const themeMeta = document.querySelector('meta[name="theme-color"]');
+    const appShell = document.createElement('div');
+    appShell.className = 'vehicle-lab-app';
+    appShell.id = 'vehicleLabApp';
 
     document.body.classList.add('vehicle-lab-dark', 'vehicle-lab-refined');
     if (pageTitle) pageTitle.textContent = '列车车号查询';
-    if (pageSubtitle) pageSubtitle.textContent = '实验功能 · 保留列车查询全部能力';
+    if (pageSubtitle) pageSubtitle.textContent = '实验功能 · 不影响现有列车查询';
     if (themeMeta) themeMeta.setAttribute('content', '#000000');
 
     if (pageTitle && pageSubtitle) {
+      pageTitle.insertAdjacentElement('beforebegin', appShell);
       const brand = document.createElement('header');
       brand.className = 'vehicle-lab-brand';
-      pageTitle.insertAdjacentElement('beforebegin', brand);
       brand.insertAdjacentHTML('afterbegin', brandMarkMarkup() + '<div class="vehicle-brand-copy"></div><span class="vehicle-lab-badge" id="vehicleRunningDateBadge" hidden></span>');
       const copy = brand.querySelector('.vehicle-brand-copy');
       copy.appendChild(pageTitle);
       copy.appendChild(pageSubtitle);
-      brand.insertAdjacentHTML('afterend',
+      appShell.appendChild(brand);
+      appShell.insertAdjacentHTML('beforeend',
         '<nav class="vehicle-lab-tabs" aria-label="车号实验功能">' +
           '<button type="button" id="vehicleTopUpload">上传照片</button>' +
           '<button type="button" id="vehicleTopReview">审核校对</button>' +
@@ -324,7 +330,7 @@
     const queryCenter = document.createElement('div');
     queryCenter.className = 'vehicle-query-center';
     const clock = $('clock');
-    clock.insertAdjacentElement('beforebegin', queryHero);
+    appShell.appendChild(queryHero);
     queryHero.appendChild(queryCenter);
     queryCenter.insertAdjacentHTML('afterbegin', '<div class="vehicle-query-heading"><strong>🚇 列车查询</strong><span>北京地铁1号线 · 实时位置定位</span></div>');
     queryCenter.appendChild(clock);
@@ -342,13 +348,13 @@
     inputShell.appendChild(tableInput);
     inputShell.insertAdjacentHTML('beforeend',
       '<div class="vehicle-resolved-choices" id="vehicleResolvedChoices" hidden></div>' +
-      '<select class="vehicle-inline-select" id="vehicleQuerySelect" aria-label="选择列车车号"><option value="">选择车号 ▾</option></select>'
+      '<select class="vehicle-inline-select" id="vehicleQuerySelect" aria-label="选择列车车号"><option value="">选择车号</option></select>'
     );
     inputLabel.textContent = '输入表号、车次或选择车号';
 
     const controlCard = document.createElement('section');
     controlCard.className = 'vehicle-control-card';
-    queryHero.insertAdjacentElement('afterend', controlCard);
+    cardLeft.insertAdjacentElement('afterbegin', controlCard);
     [
       $('vehicleDatePanel'),
       modeTabs,
@@ -362,6 +368,9 @@
     ].forEach(element => {
       if (element) controlCard.appendChild(element);
     });
+
+    if (card) appShell.appendChild(card);
+    if (installBanner) appShell.appendChild(installBanner);
 
     document.body.insertAdjacentHTML('beforeend', managerMarkup());
     fillStaticOptions();
@@ -445,7 +454,7 @@
       select.innerHTML = '<option value="">尚未导入车号</option>';
       select.disabled = true;
     } else {
-      select.innerHTML = '<option value="">选择车号 ▾</option>' + entries.map(([, vehicle]) => '<option value="' + vehicle + '">' + vehicle + '车 ▾</option>').join('');
+      select.innerHTML = '<option value="">选择车号</option>' + entries.map(([, vehicle]) => '<option value="' + vehicle + '">' + vehicle + '车</option>').join('');
       select.disabled = false;
       if (entries.some(([, vehicle]) => vehicle === previous)) select.value = previous;
     }
