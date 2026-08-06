@@ -1,4 +1,4 @@
-const CACHE = 'vehicle-query-lab-v015-v1';
+const CACHE = 'vehicle-query-lab-v016-v1';
 const APP_SHELL = ['./index.html', './manifest.json', './vehicle-lab-v014.css', './vehicle-lab-v014.js'];
 const NETWORK_TIMEOUT_MS = 1500;
 const INDEX_URL = new URL('./index.html', self.registration.scope).href;
@@ -51,7 +51,7 @@ self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys()
       .then(keys => Promise.all(
-        keys.filter(key => key.startsWith('vehicle-query-lab-v015-') && key !== CACHE)
+        keys.filter(key => key.startsWith('vehicle-query-lab-v016-') && key !== CACHE)
             .map(key => caches.delete(key))
       ))
       .then(() => self.clients.claim())
