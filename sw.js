@@ -1,4 +1,4 @@
-const CACHE_NAME = "metro-tools-v2.8.13-vehicle-lab-v0.1.5";
+const CACHE_NAME = "metro-tools-v2.8.14-vehicle-lab-v0.1.6";
 const APP_ASSETS = [
   "./",
   "./index.html",
@@ -10,10 +10,10 @@ const APP_ASSETS = [
   "./train-query/manifest.json",
   "./train-query/sw.js",
   "./vehicle-query-lab-v015/",
-  "./vehicle-query-lab-v015/?v=0.1.5",
+  "./vehicle-query-lab-v015/?v=0.1.6",
   "./vehicle-query-lab-v015/index.html",
-  "./vehicle-query-lab-v015/vehicle-lab-v014.css",
-  "./vehicle-query-lab-v015/vehicle-lab-v014.js",
+  "./vehicle-query-lab-v015/vehicle-lab-v016.css",
+  "./vehicle-query-lab-v015/vehicle-lab-v016.js",
   "./vehicle-query-lab-v015/manifest.json",
   "./vehicle-query-lab-v015/sw.js",
   "./trainsheet-ai/",
