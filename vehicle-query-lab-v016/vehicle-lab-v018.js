@@ -685,6 +685,13 @@
         clearVehicleSelection();
       }
     });
+    // 只有用户实际点到输入框外时才移走光标；定时刷新不得影响键盘。
+    document.addEventListener('pointerdown', event => {
+      const input = $('tableInput');
+      if (document.activeElement === input && event.target !== input) {
+        input.blur();
+      }
+    }, true);
     $('vehicleQuerySelect').addEventListener('change', refreshVehicleResolution);
     $('vehicleResolvedChoices').addEventListener('click', event => {
       const button = event.target.closest('[data-vehicle-query]');
@@ -764,8 +771,6 @@
   }
 
   function enhancedQuery(openResultPage = true) {
-    const activeElement = document.activeElement;
-    if (activeElement && typeof activeElement.blur === 'function') activeElement.blur();
     const raw = $('tableInput').value.trim();
     const selectedVehicle = $('vehicleQuerySelect').value;
     const station = $('stationSelect').value;
