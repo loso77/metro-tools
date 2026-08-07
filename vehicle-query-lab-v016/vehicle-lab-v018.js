@@ -418,10 +418,10 @@
       $('vehicleDatePanel'),
       modeTabs,
       viewModeRow,
-      stationRow,
-      stationTimeRow,
       inputLabel,
       inputRow,
+      stationRow,
+      stationTimeRow,
       queryPageMessage,
       importSection
     ].forEach(element => {
@@ -707,6 +707,8 @@
   }
 
   function enhancedQuery(openResultPage = true) {
+    const activeElement = document.activeElement;
+    if (activeElement && typeof activeElement.blur === 'function') activeElement.blur();
     const raw = $('tableInput').value.trim();
     const selectedVehicle = $('vehicleQuerySelect').value;
     const station = $('stationSelect').value;
