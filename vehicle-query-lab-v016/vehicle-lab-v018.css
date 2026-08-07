@@ -2818,3 +2818,25 @@ body.vehicle-lab-refined.result-page .result-page-title {
     width: 66px;
   }
 }
+
+/* 查询顺序与正式列车查询一致：先输入表号/车次/车号，再选择站点和时间。 */
+body.vehicle-lab-refined .vehicle-control-card .input-label { order: 4; }
+body.vehicle-lab-refined .vehicle-control-card .input-row { order: 5; margin-bottom: 10px; }
+body.vehicle-lab-refined .vehicle-control-card .station-row { order: 6; }
+body.vehicle-lab-refined .vehicle-control-card .station-time-row { order: 7; }
+
+/* iOS 会自动放大字号小于 16px 的表单控件；保持控件高度不变，只提高交互字号。 */
+@supports (-webkit-touch-callout: none) {
+  body.vehicle-lab-refined input:not([type="file"]),
+  body.vehicle-lab-refined select {
+    font-size: 16px !important;
+  }
+
+  body.vehicle-lab-refined .vehicle-input-shell #tableInput {
+    padding-right: 118px;
+  }
+
+  body.vehicle-lab-refined .vehicle-inline-select {
+    width: 109px;
+  }
+}
