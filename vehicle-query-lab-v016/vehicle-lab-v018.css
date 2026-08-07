@@ -206,6 +206,13 @@
   font-weight: 800;
 }
 
+.vehicle-result-tag.vehicle-missing-tag,
+.bd-vehicle.vehicle-missing-tag {
+  background: #e5e7eb;
+  color: #6b7280;
+  font-weight: 650;
+}
+
 body.vehicle-manager-open {
   display: block;
   padding: calc(var(--safe-top) + 16px) 12px calc(var(--safe-bottom) + 24px);
@@ -1428,6 +1435,12 @@ body.vehicle-lab-refined .linked-table-btn,
 body.vehicle-lab-refined .bd-table-btn {
   background: var(--lab-accent);
   color: var(--lab-primary);
+}
+
+body.vehicle-lab-refined .vehicle-result-tag.vehicle-missing-tag,
+body.vehicle-lab-refined .bd-vehicle.vehicle-missing-tag {
+  background: #252527;
+  color: #8e8e93;
 }
 
 body.vehicle-lab-refined .big-station,
