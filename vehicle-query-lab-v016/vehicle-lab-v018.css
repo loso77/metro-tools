@@ -419,6 +419,15 @@ body.vehicle-manager-open .vehicle-manager-page { display: block; }
 
 .vehicle-actions button { flex: 1 1 180px; }
 
+.vehicle-ai-quota {
+  margin: 12px 0 0;
+  color: #718096;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.vehicle-ai-quota[hidden] { display: none; }
+
 .vehicle-secondary-button {
   background: #edf2f7;
   color: #2d3748;
@@ -1230,6 +1239,7 @@ body.vehicle-lab-refined .hint,
 body.vehicle-lab-refined .vehicle-muted,
 body.vehicle-lab-refined .vehicle-row-note,
 body.vehicle-lab-refined .vehicle-status,
+body.vehicle-lab-refined .vehicle-ai-quota,
 body.vehicle-lab-refined .vehicle-review-date-status {
   color: var(--lab-muted-foreground);
 }
@@ -2928,4 +2938,84 @@ body.vehicle-lab-refined .between-sta.right {
 body.vehicle-lab-refined .between-icon {
   flex: 0 0 auto;
   padding: 0;
+}
+
+/* 手机横屏：恢复与正式列车查询一致的左右分栏，避免被竖屏 430px 宽度挤成窄条。 */
+@media (orientation: landscape) and (max-height: 600px) {
+  body.vehicle-lab-refined {
+    padding: 10px max(14px, env(safe-area-inset-right, 0px)) 24px max(14px, env(safe-area-inset-left, 0px));
+  }
+
+  body.vehicle-lab-refined > .vehicle-lab-brand,
+  body.vehicle-lab-refined > .vehicle-lab-tabs,
+  body.vehicle-lab-refined > .card,
+  body.vehicle-lab-refined > .install-banner {
+    width: min(100%, 1100px);
+    max-width: 1100px;
+  }
+
+  body.vehicle-lab-refined > .vehicle-lab-brand {
+    margin-bottom: 8px;
+  }
+
+  body.vehicle-lab-refined > .card,
+  body.vehicle-lab-refined.result-page > .card {
+    display: flex;
+    width: min(100%, 1100px);
+    max-width: 1100px;
+    align-items: flex-start;
+    gap: 18px;
+  }
+
+  body.vehicle-lab-refined .card-left {
+    width: 42%;
+    min-width: 0;
+    flex: 0 0 42%;
+  }
+
+  body.vehicle-lab-refined .card-right {
+    display: block;
+    width: 58%;
+    min-width: 0;
+    min-height: 220px;
+    padding-left: 18px;
+    border-left: 1px solid #252527;
+  }
+
+  body.vehicle-lab-refined .vehicle-query-hero {
+    min-height: 92px;
+    margin-bottom: 8px;
+  }
+
+  body.vehicle-lab-refined .vehicle-query-heading {
+    margin-bottom: 6px;
+  }
+
+  body.vehicle-lab-refined .clock {
+    font-size: clamp(34px, 5vw, 48px);
+  }
+
+  body.vehicle-lab-refined .vehicle-control-card {
+    padding: 14px;
+  }
+
+  body.vehicle-lab-refined.vehicle-manager-open {
+    padding: 0;
+  }
+
+  body.vehicle-lab-refined.vehicle-manager-open .vehicle-manager-page {
+    width: min(100%, 1100px);
+    max-width: 1100px;
+    padding: 12px max(18px, env(safe-area-inset-right, 0px)) 24px max(18px, env(safe-area-inset-left, 0px));
+  }
+
+  body.vehicle-lab-refined .vehicle-review-layout,
+  body.vehicle-lab-refined .vehicle-manage-grid {
+    grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr);
+    align-items: start;
+  }
+
+  body.vehicle-lab-refined .vehicle-review-photo img {
+    max-height: calc(100vh - 180px);
+  }
 }

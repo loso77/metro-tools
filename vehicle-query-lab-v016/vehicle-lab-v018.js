@@ -509,6 +509,7 @@
         '<div class="vehicle-progress" id="vehicleRecognitionProgress"><span></span></div>' +
         '<p class="vehicle-status" id="vehicleRecognitionStatus">请选择一张或三张照片。</p>' +
         '<div class="vehicle-actions"><button type="button" id="vehicleRecognizeButton" disabled>上传并开始识别</button><button type="button" class="vehicle-secondary-button" id="vehicleManualImportButton">手工建立对应关系</button></div>' +
+        '<p class="vehicle-ai-quota" id="vehicleAiQuota" hidden></p>' +
       '</div>' +
 
       '<div class="vehicle-stage" id="vehicleReviewStage">' +
@@ -895,7 +896,10 @@
     const stages = { upload: $('vehicleUploadStage'), review: $('vehicleReviewStage'), manage: $('vehicleManageStage') };
     Object.entries(stages).forEach(([key, element]) => element.classList.toggle('active', key === name));
     document.querySelectorAll('[data-vehicle-nav]').forEach(step => step.classList.toggle('active', step.dataset.vehicleNav === name || (name === 'manage' && step.dataset.vehicleNav === 'review')));
-    if (name === 'upload') setRecognitionStatus(photos.length ? '已选择' + photos.length + '张照片。' : '请选择一张或三张照片。');
+    if (name === 'upload') {
+      setRecognitionStatus(photos.length ? '已选择' + photos.length + '张照片。' : '请选择一张或三张照片。');
+      loadVehicleQuota();
+    }
     if (name === 'manage') renderManageStage();
     window.scrollTo(0, 0);
   }
@@ -935,6 +939,40 @@
   function setRecognitionStatus(message, type = '') {
     $('vehicleRecognitionStatus').textContent = message;
     $('vehicleRecognitionStatus').className = 'vehicle-status ' + type;
+  }
+
+  function showVehicleQuota(usage) {
+    const quota = $('vehicleAiQuota');
+    if (!quota || !usage) return;
+    const required = ['device_used', 'device_limit', 'global_used', 'global_limit'];
+    if (required.some(key => usage[key] === undefined || usage[key] === null)) return;
+    const expiresAt = Number(usage.expires_at);
+    const expiresText = Number.isFinite(expiresAt) && expiresAt > 0
+      ? '令牌有效至 ' + new Date(expiresAt * 1000).toLocaleDateString('zh-CN') + '。'
+      : '';
+    quota.textContent = '今日本设备 ' + usage.device_used + '/' + usage.device_limit +
+      ' 次；服务总计 ' + usage.global_used + '/' + usage.global_limit + ' 次。' +
+      expiresText;
+    quota.hidden = false;
+  }
+
+  async function loadVehicleQuota() {
+    const quota = $('vehicleAiQuota');
+    const base = String(localStorage.getItem('ts_worker') || '').replace(/\/+$/, '');
+    const token = localStorage.getItem('ts_token') || '';
+    if (!quota || !base || !token) {
+      if (quota) quota.hidden = true;
+      return;
+    }
+    try {
+      const response = await fetch(base + '/me', {
+        headers: { Authorization: 'Bearer ' + token }
+      });
+      if (!response.ok) return;
+      showVehicleQuota(await response.json());
+    } catch (_) {
+      // 配额读取失败不应影响照片识别；识别成功后仍会使用响应中的 usage 更新。
+    }
   }
 
   function setReviewStatus(message, type = '') {
@@ -1324,6 +1362,7 @@
     try {
       setRecognitionStatus(singleUpdate ? '正在识别照片日期、范围和车号，请稍候……' : '正在一次识别三张照片，请稍候……');
       const response = await recognizePhotoBatch();
+      showVehicleQuota(response.usage);
       const responsePages = Array.isArray(response.pages) ? response.pages : [];
       const results = photos.map((photo, index) => {
         const pageResponse = responsePages.find(page => Number(page.image_index) === index + 1) || responsePages[index] || (singleUpdate ? response : {});
