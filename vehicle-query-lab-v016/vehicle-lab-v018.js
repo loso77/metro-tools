@@ -179,7 +179,7 @@
 
   function syncQueryScheduleType(date = selectedServiceDate) {
     const data = dayData(date);
-    if (!data || typeof switchMode !== 'function') return;
+    if (typeof switchMode !== 'function') return;
     const type = dayScheduleType(data, date);
     const activeType = $('tabWeekend') && $('tabWeekend').classList.contains('active') ? 'weekend' : 'weekday';
     if (activeType !== type) switchMode(type);
@@ -495,8 +495,16 @@
     const importedDates = dates.filter(date => dayData(date));
     $('vehicleDatePanel').hidden = importedDates.length === 0;
     if (importedDates.length) {
-      if (!importedDates.includes(selectedServiceDate)) selectedServiceDate = importedDates[0];
-      $('vehicleServiceDate').innerHTML = importedDates.map(date => '<option value="' + date + '">' + formatDateLabel(date) + '</option>').join('');
+      const today = defaultServiceDate();
+      const selectableDates = [today].concat(importedDates.filter(date => date !== today));
+      if (!selectableDates.includes(selectedServiceDate)) selectedServiceDate = today;
+      $('vehicleServiceDate').innerHTML = selectableDates.map(date => {
+        const imported = Boolean(dayData(date));
+        if (date === today) {
+          return '<option value="' + date + '">今天（' + formatDateLabel(date) + (imported ? ' · 已导入车号' : '') + '）</option>';
+        }
+        return '<option value="' + date + '">' + formatDateLabel(date) + '（已导入车号）</option>';
+      }).join('');
       $('vehicleServiceDate').value = selectedServiceDate;
     } else {
       if (!dates.includes(selectedServiceDate)) selectedServiceDate = defaultServiceDate();
