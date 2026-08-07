@@ -521,7 +521,7 @@
     entries.sort((a, b) => a[1].localeCompare(b[1], 'zh-CN', { numeric: true }));
     const previous = select.value;
     if (!entries.length) {
-      select.innerHTML = '<option value="">尚未导入车号</option>';
+      select.innerHTML = '<option value="">未导入车号</option>';
       select.disabled = true;
     } else {
       select.innerHTML = '<option value="">选择车号</option>' + entries.map(([, vehicle]) => '<option value="' + vehicle + '">' + vehicle + '车</option>').join('');
@@ -739,6 +739,7 @@
   }
 
   function decorateResults() {
+    decorateDepotInfo();
     const mapping = mappingAt(selectedServiceDate, currentQueryTimeText());
     if (!Object.keys(mapping).length) return;
     document.querySelectorAll('#result .result-meta-row').forEach(row => {
@@ -783,6 +784,21 @@
         tableElement.insertAdjacentElement('afterend', tag);
       }
       tag.textContent = vehicle + '车';
+    });
+  }
+
+  function decorateDepotInfo() {
+    document.querySelectorAll('#result .depot-info').forEach(info => {
+      if (info.dataset.vehicleStructured === 'true') return;
+      const entries = info.textContent.split(/\s*[·•]\s*/).map(text => text.trim()).filter(Boolean);
+      if (!entries.length) return;
+      info.classList.add('vehicle-depot-grid');
+      info.innerHTML = entries.map(entry => {
+        const match = entry.match(/^(.+?)\s+(\d{1,2}:\d{2}:\d{2})\s+(出库|回库)$/);
+        if (!match) return '<span class="vehicle-depot-item"><span>' + escapeHtml(entry) + '</span></span>';
+        return '<span class="vehicle-depot-item"><span class="vehicle-depot-name">' + escapeHtml(match[1]) + '</span><time>' + escapeHtml(match[2]) + '</time><span class="vehicle-depot-action">' + escapeHtml(match[3]) + '</span></span>';
+      }).join('');
+      info.dataset.vehicleStructured = 'true';
     });
   }
 

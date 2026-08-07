@@ -2833,10 +2833,86 @@ body.vehicle-lab-refined .vehicle-control-card .station-time-row { order: 7; }
   }
 
   body.vehicle-lab-refined .vehicle-input-shell #tableInput {
-    padding-right: 118px;
+    padding-right: 125px;
   }
 
   body.vehicle-lab-refined .vehicle-inline-select {
-    width: 109px;
+    width: 116px;
   }
+}
+
+/* 查询结果中的出入库记录按项目对齐，避免长句随屏幕宽度任意换行。 */
+body.vehicle-lab-refined .depot-info.vehicle-depot-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 12px;
+  color: #a9a9af;
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+body.vehicle-lab-refined .depot-info.vehicle-depot-grid::before {
+  content: "出入库时刻";
+  grid-column: 1 / -1;
+  margin-bottom: 1px;
+  color: #d7d7dc;
+  font-weight: 650;
+}
+
+body.vehicle-lab-refined .vehicle-depot-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 7px 8px;
+  border: 1px solid #29292c;
+  border-radius: 9px;
+  background: #111112;
+}
+
+body.vehicle-lab-refined .vehicle-depot-name {
+  overflow: hidden;
+  color: #c7c7cc;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body.vehicle-lab-refined .vehicle-depot-item time {
+  color: #f0f0f2;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+body.vehicle-lab-refined .vehicle-depot-action {
+  color: #83c3ff;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+@media (max-width: 350px) {
+  body.vehicle-lab-refined .depot-info.vehicle-depot-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 区间运行的起终点按内容宽度居中排列，不再被 flex: 1 推到屏幕两端。 */
+body.vehicle-lab-refined .between-wrap {
+  justify-content: center;
+  gap: 14px;
+}
+
+body.vehicle-lab-refined .between-sta,
+body.vehicle-lab-refined .between-sta.right {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: calc(50% - 30px);
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+body.vehicle-lab-refined .between-icon {
+  flex: 0 0 auto;
+  padding: 0;
 }
