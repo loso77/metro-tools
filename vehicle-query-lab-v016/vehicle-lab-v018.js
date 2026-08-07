@@ -14,6 +14,15 @@
     for (let number = page.start; number <= page.end; number += 1) values.push(formatTable(number));
     return values;
   });
+  const WEEKEND_TABLES = [
+    ...tableRange(1, 12),
+    ...tableRange(31, 40),
+    ...tableRange(71, 88)
+  ];
+  const SCHEDULE_TYPES = {
+    weekday: { label: '平日图', tables: ALL_TABLES },
+    weekend: { label: '双休日图', tables: WEEKEND_TABLES }
+  };
 
   const originalQuery = window.query;
   const originalClearAll = window.clearAll;
@@ -26,13 +35,35 @@
   let reviewFilter = 'flagged';
   let reviewPhotoIndex = 0;
   let reviewSource = 'photo';
-  let recognitionMeta = { dates: [], pageTypes: [], dateConflict: false };
+  let recognitionMeta = emptyRecognitionMeta();
   let activeVehicleQuery = '';
   let lastResolvedTable = '';
   let adjustmentConflict = null;
   let decorateQueued = false;
 
   function $(id) { return document.getElementById(id); }
+
+  function tableRange(start, end) {
+    const values = [];
+    for (let number = start; number <= end; number += 1) values.push(formatTable(number));
+    return values;
+  }
+
+  function emptyRecognitionMeta() {
+    return {
+      dates: [],
+      pageTypes: [],
+      dateConflict: false,
+      results: [],
+      scheduleType: '',
+      suggestedScheduleType: '',
+      scheduleNeedsConfirmation: false,
+      scheduleManuallyConfirmed: false,
+      scheduleEvidence: [],
+      scheduleConflicts: [],
+      planCodes: []
+    };
+  }
 
   function escapeHtml(value) {
     return String(value == null ? '' : value)
@@ -125,6 +156,33 @@
 
   function dayData(date = selectedServiceDate) {
     return store.days[date] || null;
+  }
+
+  function isWeekendDate(dateString) {
+    const parts = String(dateString || '').split('-').map(Number);
+    if (parts.length !== 3 || parts.some(Number.isNaN)) return false;
+    const day = new Date(parts[0], parts[1] - 1, parts[2]).getDay();
+    return day === 0 || day === 6;
+  }
+
+  function tablesForScheduleType(type) {
+    return (SCHEDULE_TYPES[type] || SCHEDULE_TYPES.weekday).tables.slice();
+  }
+
+  function dayScheduleType(data, date = selectedServiceDate) {
+    if (data && SCHEDULE_TYPES[data.scheduleType]) return data.scheduleType;
+    const tables = Object.keys((data && data.base) || {}).map(formatTable).filter(Boolean);
+    if (tables.length >= 60 || tables.some(table => !WEEKEND_TABLES.includes(table))) return 'weekday';
+    if (tables.length >= 30 && tables.every(table => WEEKEND_TABLES.includes(table))) return 'weekend';
+    return isWeekendDate(date) ? 'weekend' : 'weekday';
+  }
+
+  function syncQueryScheduleType(date = selectedServiceDate) {
+    const data = dayData(date);
+    if (!data || typeof switchMode !== 'function') return;
+    const type = dayScheduleType(data, date);
+    const activeType = $('tabWeekend') && $('tabWeekend').classList.contains('active') ? 'weekend' : 'weekday';
+    if (activeType !== type) switchMode(type);
   }
 
   function timeToServiceSeconds(value) {
@@ -368,6 +426,7 @@
     fillStaticOptions();
     bindEvents();
     refreshDateOptions();
+    syncQueryScheduleType();
     refreshVehicleOptions();
     syncManagerButton();
   }
@@ -394,6 +453,7 @@
       '<div class="vehicle-stage" id="vehicleReviewStage">' +
         '<div class="vehicle-section-head"><div><h3>审核与人工校对</h3><p class="vehicle-muted" id="vehicleReviewSummary"></p></div><button type="button" class="vehicle-compact-button" id="vehicleReviewBack">重新上传</button></div>' +
         '<div class="vehicle-review-toolbar"><div class="vehicle-filter-group"><button type="button" class="active" data-vehicle-filter="flagged">只看需确认</button><button type="button" data-vehicle-filter="all">查看全部</button></div><label class="vehicle-manual-date-field" id="vehicleManualDateField" hidden>手工录入日期<select id="vehicleImportDate"></select></label><span class="vehicle-review-date-status" id="vehicleReviewDateStatus"></span></div>' +
+        '<div class="vehicle-schedule-review"><label for="vehicleReviewScheduleType">运行图类型</label><select id="vehicleReviewScheduleType"><option value="">请人工选择</option><option value="weekday">平日图</option><option value="weekend">双休日图</option></select><div class="vehicle-schedule-evidence" id="vehicleScheduleEvidence"></div></div>' +
         '<div class="vehicle-review-layout">' +
           '<div class="vehicle-review-photo"><img id="vehicleReviewPhoto" alt="运行计划原照片"><div class="vehicle-review-photo-controls"><button type="button" id="vehiclePreviousPhoto">上一张</button><button type="button" id="vehicleNextPhoto">下一张</button></div></div>' +
           '<div class="vehicle-table-wrap"><table class="vehicle-table"><thead><tr><th>表号</th><th>最终车号</th><th>识别说明</th></tr></thead><tbody id="vehicleReviewBody"></tbody></table></div>' +
@@ -416,8 +476,12 @@
     '</section>';
   }
 
+  function fillAdjustmentTableOptions(scheduleType = 'weekday') {
+    $('vehicleAdjustTable').innerHTML = tablesForScheduleType(scheduleType).map(table => '<option value="' + table + '">' + table + '号表</option>').join('');
+  }
+
   function fillStaticOptions() {
-    $('vehicleAdjustTable').innerHTML = ALL_TABLES.map(table => '<option value="' + table + '">' + table + '号表</option>').join('');
+    fillAdjustmentTableOptions();
   }
 
   function refreshDateOptions() {
@@ -535,6 +599,7 @@
       selectedServiceDate = $('vehicleServiceDate').value;
       $('tableInput').value = '';
       clearVehicleSelection();
+      syncQueryScheduleType(selectedServiceDate);
       refreshVehicleOptions();
       queueDecorate();
     });
@@ -591,7 +656,23 @@
     $('vehicleSaveCorrections').addEventListener('click', saveBaseCorrections);
     $('vehicleSaveAdjustment').addEventListener('click', saveAdjustment);
     $('vehicleUndoAdjustment').addEventListener('click', undoAdjustment);
-    $('vehicleImportDate').addEventListener('change', updateReviewDateStatus);
+    $('vehicleImportDate').addEventListener('change', () => {
+      if (reviewSource === 'manual') {
+        const scheduleType = isWeekendDate($('vehicleImportDate').value) ? 'weekend' : 'weekday';
+        recognitionMeta.suggestedScheduleType = scheduleType;
+        recognitionMeta.scheduleManuallyConfirmed = true;
+        applyReviewScheduleType(scheduleType);
+      }
+      updateReviewDateStatus();
+    });
+    $('vehicleReviewScheduleType').addEventListener('change', () => {
+      const scheduleType = $('vehicleReviewScheduleType').value;
+      if (!SCHEDULE_TYPES[scheduleType]) return;
+      recognitionMeta.scheduleManuallyConfirmed = true;
+      recognitionMeta.scheduleNeedsConfirmation = false;
+      recognitionMeta.scheduleEvidence.push('已由人工确认运行图类型');
+      applyReviewScheduleType(scheduleType);
+    });
     $('vehiclePhotoGrid').addEventListener('change', event => {
       const select = event.target.closest('[data-photo-index]');
       if (!select) return;
@@ -730,7 +811,7 @@
   function handlePhotoSelection() {
     const files = Array.from($('vehiclePhotoInput').files || []).slice(0, 3);
     revokePhotos();
-    photos = files.map((file, index) => ({ file, url: URL.createObjectURL(file), index, manualPageType: '', detectedPageType: '', recognizedDate: '', result: null }));
+    photos = files.map((file, index) => ({ file, url: URL.createObjectURL(file), index, manualPageType: '', detectedPageType: '', recognizedDate: '', planCode: '', result: null }));
     renderPhotoCards();
     $('vehicleRecognizeButton').disabled = photos.length !== 3;
     if (files.length === 3) setRecognitionStatus('已选择3张照片，上传顺序不限，可以开始识别。', 'success');
@@ -741,7 +822,10 @@
     $('vehiclePhotoGrid').innerHTML = photos.map((photo, index) => {
       const detected = photo.detectedPageType ? pageTypeById(photo.detectedPageType) : null;
       const options = '<option value="">自动识别照片类型</option>' + PAGE_TYPES.map(page => '<option value="' + page.id + '"' + (photo.manualPageType === page.id ? ' selected' : '') + '>' + page.label + ' · ' + formatTable(page.start) + '—' + formatTable(page.end) + '表</option>').join('');
-      return '<article class="vehicle-photo-card"><img src="' + photo.url + '" alt="第' + (index + 1) + '张运行计划"><div class="vehicle-photo-info"><strong>第' + (index + 1) + '张' + (detected ? ' · 已识别' + detected.label : '') + '</strong><select class="vehicle-photo-page-select" data-photo-index="' + index + '">' + options + '</select><span class="vehicle-muted">' + (photo.recognizedDate ? '日期：' + formatDateLabel(photo.recognizedDate) : '等待识别日期') + '</span></div></article>';
+      const metadata = photo.recognizedDate
+        ? '日期：' + formatDateLabel(photo.recognizedDate) + (photo.planCode ? ' · 标题：' + escapeHtml(photo.planCode) : '')
+        : '等待识别日期与标题代号';
+      return '<article class="vehicle-photo-card"><img src="' + photo.url + '" alt="第' + (index + 1) + '张运行计划"><div class="vehicle-photo-info"><strong>第' + (index + 1) + '张' + (detected ? ' · 已识别' + detected.label : '') + '</strong><select class="vehicle-photo-page-select" data-photo-index="' + index + '">' + options + '</select><span class="vehicle-muted">' + metadata + '</span></div></article>';
     }).join('');
   }
 
@@ -814,7 +898,13 @@
       task: 'daily_vehicle_mapping',
       images,
       provider: 'doubao',
-      expected_pages: PAGE_TYPES.map(page => ({ id: page.id, label: page.label, table_start: page.start, table_end: page.end }))
+      expected_pages: PAGE_TYPES.map(page => ({ id: page.id, label: page.label, table_start: page.start, table_end: page.end })),
+      required_metadata: ['service_date', 'document_title', 'plan_code', 'schedule_type'],
+      schedule_candidates: [
+        { id: 'weekday', label: '平日图', title_codes: ['PR'], expected_tables: ALL_TABLES },
+        { id: 'weekend', label: '双休日图', title_codes: ['SX'], compatible_title_codes: ['SGJR'], expected_tables: WEEKEND_TABLES }
+      ],
+      classification_rule: '先逐张识别日期并确认三张日期一致，再综合标题代号与实际主表号数量判断平日图或双休日图；SGJR是中性代号，不得因其与SX不同而拒绝同日期照片。'
     };
     try {
       return await workerRequest('/recognize-vehicle-map', request);
@@ -826,15 +916,129 @@
     }
   }
 
-  function normalizeRecognition(photo, response) {
+  function recognizedPlanCode(response) {
+    const candidates = [
+      response.plan_code,
+      response.planCode,
+      response.plan_number,
+      response.document_code,
+      response.document_title,
+      response.title,
+      response.header_text
+    ].filter(Boolean).join(' ');
+    const match = String(candidates).toUpperCase().match(/\b(?:SX|PR|SGJR)[A-Z0-9-]*\d[A-Z0-9-]*\b/);
+    return match ? match[0] : '';
+  }
+
+  function recognizedScheduleType(response) {
+    const value = String(response.schedule_type || response.plan_type || response.timetable_type || '').toLowerCase();
+    if (/weekend|double|双休|节假|sx/.test(value)) return 'weekend';
+    if (/weekday|workday|平日|工作日|pr/.test(value)) return 'weekday';
+    return '';
+  }
+
+  function inferenceRows(results) {
+    const rows = [];
+    results.forEach(result => {
+      result.rawRows.forEach(raw => {
+        const table = formatTable(raw.table_no || raw.table || raw.tableNumber);
+        const vehicle = formatVehicle(raw.effective_vehicle_number || raw.changed_vehicle_number || raw.changed_train_number || raw.replacement_vehicle_number || raw.original_vehicle_number || raw.vehicle_number || raw.train_number);
+        if (table && vehicle) rows.push({ table, vehicle });
+      });
+    });
+    return [...new Map(rows.map(row => [row.table, row])).values()];
+  }
+
+  function inferScheduleType(date, results, batchResponse) {
+    let weekdayScore = 0;
+    let weekendScore = 0;
+    const evidence = [];
+    const conflicts = [];
+    const rows = inferenceRows(results);
+    const tables = rows.map(row => row.table);
+    const planCodes = [...new Set(results.map(result => result.planCode).concat([
+      recognizedPlanCode(batchResponse)
+    ]).filter(Boolean))];
+    const explicitTypes = [...new Set(results.map(result => result.explicitScheduleType).concat([
+      recognizedScheduleType(batchResponse)
+    ]).filter(Boolean))];
+    const hasSx = planCodes.some(code => /^SX/.test(code));
+    const hasPr = planCodes.some(code => /^PR/.test(code));
+    const hasSgjr = planCodes.some(code => /^SGJR/.test(code));
+
+    if (hasSx) {
+      weekendScore += 5;
+      evidence.push('标题识别到SX双休日代号');
+    }
+    if (hasPr) {
+      weekdayScore += 5;
+      evidence.push('标题识别到PR平日代号');
+    }
+    if (hasSgjr) evidence.push('土桥段识别到SGJR代号（中性辅助，不阻止同日期合并）');
+    if (explicitTypes.includes('weekend')) {
+      weekendScore += 4;
+      evidence.push('AI元数据判断为双休日图');
+    }
+    if (explicitTypes.includes('weekday')) {
+      weekdayScore += 4;
+      evidence.push('AI元数据判断为平日图');
+    }
+    if (hasSx && hasPr) conflicts.push('三张照片同时出现SX与PR强代号');
+    if (explicitTypes.length > 1) conflicts.push('AI返回的运行图类型互相矛盾');
+
+    if (tables.length === WEEKEND_TABLES.length && tables.every(table => WEEKEND_TABLES.includes(table))) {
+      weekendScore += 4;
+      evidence.push('识别到40个有效主表号，范围与双休日图一致');
+    } else if (tables.length >= 70) {
+      weekdayScore += 4;
+      evidence.push('识别到' + tables.length + '个有效主表号，数量接近平日图');
+    } else if (tables.length >= 30 && tables.length <= 50 && tables.every(table => WEEKEND_TABLES.includes(table))) {
+      weekendScore += 3;
+      evidence.push('识别到' + tables.length + '个有效主表号，且均在双休日范围内');
+    } else if (tables.some(table => !WEEKEND_TABLES.includes(table))) {
+      weekdayScore += 3;
+      evidence.push('识别到双休日范围以外的主表号');
+    } else {
+      evidence.push('有效主表号共' + tables.length + '个，数量证据不足');
+    }
+
+    if (date) {
+      if (isWeekendDate(date)) {
+        weekendScore += 1;
+        evidence.push('运行日期是周末（仅作辅助）');
+      } else {
+        weekdayScore += 1;
+        evidence.push('运行日期是工作日（仅作辅助）');
+      }
+    }
+
+    const suggestedType = weekendScore > weekdayScore ? 'weekend' : 'weekday';
+    const scoreGap = Math.abs(weekendScore - weekdayScore);
+    const strongConflict = (hasSx && weekdayScore >= weekendScore) || (hasPr && weekendScore >= weekdayScore);
+    if (strongConflict) conflicts.push('标题代号与表号数量或日期证据不一致');
+    return {
+      type: suggestedType,
+      needsConfirmation: conflicts.length > 0 || scoreGap < 3,
+      evidence,
+      conflicts: [...new Set(conflicts)],
+      planCodes,
+      rowCount: tables.length,
+      scores: { weekday: weekdayScore, weekend: weekendScore }
+    };
+  }
+
+  function normalizeRecognition(photo, response, batchResponse = {}) {
     const rawRows = Array.isArray(response.rows) ? response.rows : Array.isArray(response.mappings) ? response.mappings : [];
     const responseDepot = response.depot || response.maintenance_center || response.page_type || response.center || '';
     const detectedPageType = photo.manualPageType || pageTypeFromText(responseDepot) || detectPageType(rawRows);
-    const recognizedDate = parseRecognizedDate(response.date || response.service_date || response.document_date || response.plan_date);
+    const recognizedDate = parseRecognizedDate(response.date || response.service_date || response.document_date || response.plan_date || batchResponse.date || batchResponse.service_date || batchResponse.document_date || batchResponse.plan_date);
+    const planCode = recognizedPlanCode(response) || recognizedPlanCode(batchResponse);
+    const explicitScheduleType = recognizedScheduleType(response);
     photo.detectedPageType = detectedPageType;
     photo.recognizedDate = recognizedDate;
+    photo.planCode = planCode;
     photo.result = response;
-    return { rawRows, pageType: detectedPageType, date: recognizedDate };
+    return { rawRows, pageType: detectedPageType, date: recognizedDate, planCode, explicitScheduleType };
   }
 
   function normalizedRow(raw, pageType) {
@@ -866,6 +1070,87 @@
     };
   }
 
+  function blankReviewRow(table, note = '等待人工填写') {
+    const page = pageTypeForTable(table);
+    return {
+      table,
+      vehicle: '',
+      originalVehicle: '',
+      changedVehicle: '',
+      pageType: page ? page.id : '',
+      confidence: 0,
+      needsReview: true,
+      conflict: false,
+      note,
+      manuallyEdited: false
+    };
+  }
+
+  function buildRecognizedReviewRows(results, scheduleType, preservedRows = []) {
+    const rawByTable = new Map();
+    results.forEach(result => {
+      result.rawRows.forEach(raw => {
+        const table = formatTable(raw.table_no || raw.table || raw.tableNumber);
+        if (table && pageTypeForTable(table)) rawByTable.set(table, { raw, pageType: result.pageType });
+      });
+    });
+    const preserved = new Map(preservedRows.filter(row => row.manuallyEdited).map(row => [row.table, row]));
+    return tablesForScheduleType(scheduleType).map(table => {
+      const source = rawByTable.get(table);
+      const row = source
+        ? normalizedRow(source.raw, source.pageType || pageTypeForTable(table).id)
+        : blankReviewRow(table, 'AI未返回该表号');
+      const edited = preserved.get(table);
+      if (edited) {
+        row.vehicle = edited.vehicle;
+        row.manuallyEdited = true;
+        row.needsReview = true;
+        row.note = '已人工修改；' + row.note;
+      }
+      return row;
+    });
+  }
+
+  function buildManualReviewRows(scheduleType, preservedRows = []) {
+    const preserved = new Map(preservedRows.map(row => [row.table, row]));
+    return tablesForScheduleType(scheduleType).map(table => preserved.get(table) || blankReviewRow(table));
+  }
+
+  function applyReviewScheduleType(scheduleType, preserveRows = true) {
+    if (!SCHEDULE_TYPES[scheduleType]) return;
+    const previous = preserveRows ? reviewRows : [];
+    recognitionMeta.scheduleType = scheduleType;
+    reviewRows = reviewSource === 'photo'
+      ? buildRecognizedReviewRows(recognitionMeta.results, scheduleType, previous)
+      : buildManualReviewRows(scheduleType, previous);
+    revalidateReviewRows();
+    renderReviewRows();
+    renderReviewSummary();
+  }
+
+  function renderScheduleReview() {
+    const select = $('vehicleReviewScheduleType');
+    const evidence = $('vehicleScheduleEvidence');
+    if (!select || !evidence) return;
+    select.value = recognitionMeta.scheduleNeedsConfirmation && !recognitionMeta.scheduleManuallyConfirmed
+      ? ''
+      : recognitionMeta.scheduleType;
+    const label = SCHEDULE_TYPES[recognitionMeta.suggestedScheduleType || recognitionMeta.scheduleType];
+    const parts = [];
+    if (reviewSource === 'photo') {
+      parts.push(recognitionMeta.scheduleNeedsConfirmation && !recognitionMeta.scheduleManuallyConfirmed
+        ? 'AI倾向“' + (label ? label.label : '未知类型') + '”，但证据存在冲突，请人工选择后再保存。'
+        : '已判定为“' + (SCHEDULE_TYPES[recognitionMeta.scheduleType] || SCHEDULE_TYPES.weekday).label + '”。');
+      if (recognitionMeta.planCodes.length) parts.push('标题代号：' + recognitionMeta.planCodes.join('、') + '。');
+      if (recognitionMeta.scheduleEvidence.length) parts.push(recognitionMeta.scheduleEvidence.join('；') + '。');
+      if (recognitionMeta.scheduleConflicts.length) parts.push('需注意：' + recognitionMeta.scheduleConflicts.join('；') + '。');
+    } else {
+      parts.push('手工录入时可按实际运行图选择；切换类型会同步调整需要填写的表号。');
+    }
+    evidence.textContent = parts.join('');
+    evidence.classList.toggle('alert', recognitionMeta.scheduleNeedsConfirmation && !recognitionMeta.scheduleManuallyConfirmed);
+  }
+
   async function recognizePhotos() {
     if (photos.length !== 3) return setRecognitionStatus('请先选择三张照片。', 'error');
     $('vehicleRecognizeButton').disabled = true;
@@ -877,35 +1162,41 @@
       const responsePages = Array.isArray(response.pages) ? response.pages : [];
       const results = photos.map((photo, index) => {
         const pageResponse = responsePages.find(page => Number(page.image_index) === index + 1) || responsePages[index] || {};
-        return normalizeRecognition(photo, pageResponse);
+        return normalizeRecognition(photo, pageResponse, response);
       });
       const pageTypes = results.map(result => result.pageType);
       const missingType = pageTypes.findIndex(type => !type);
       if (missingType >= 0) throw new Error('第' + (missingType + 1) + '张照片无法自动判断表号范围，请在照片下方手工选择后重新识别');
       if (new Set(pageTypes).size !== 3) throw new Error('检测到重复的检修中心照片，请检查三张照片类型后重新识别');
-      const rows = [];
-      results.forEach(result => {
-        const page = pageTypeById(result.pageType);
-        const rowMap = new Map(result.rawRows.map(raw => [formatTable(raw.table_no || raw.table || raw.tableNumber), raw]));
-        for (let number = page.start; number <= page.end; number += 1) {
-          const table = formatTable(number);
-          const raw = rowMap.get(table) || { table_no: number, note: 'AI未返回该表号', confidence: 0, ambiguity: true };
-          rows.push(normalizedRow(raw, page.id));
-        }
-      });
-      reviewRows = rows.sort((a, b) => Number(a.table) - Number(b.table));
       const dates = results.map(result => result.date).filter(Boolean);
+      const dateConflict = Boolean(response.date_conflict) || new Set(dates).size > 1;
+      const dateReady = dates.length === 3 && !dateConflict;
+      const recognizedDate = dateReady ? dates[0] : '';
+      const scheduleInference = inferScheduleType(recognizedDate, results, response);
+      if (!dateReady) {
+        scheduleInference.needsConfirmation = true;
+        scheduleInference.conflicts.unshift(dateConflict ? '三张照片日期不一致，必须先处理日期' : '有照片未识别到日期，必须先处理日期');
+      }
       recognitionMeta = {
+        ...emptyRecognitionMeta(),
         dates,
         pageTypes,
-        dateConflict: Boolean(response.date_conflict) || new Set(dates).size > 1
+        dateConflict,
+        results,
+        scheduleType: scheduleInference.type,
+        suggestedScheduleType: scheduleInference.type,
+        scheduleNeedsConfirmation: scheduleInference.needsConfirmation,
+        scheduleEvidence: scheduleInference.evidence,
+        scheduleConflicts: scheduleInference.conflicts,
+        planCodes: scheduleInference.planCodes
       };
       reviewSource = 'photo';
       $('vehicleManualDateField').hidden = true;
-      revalidateReviewRows();
+      reviewRows = buildRecognizedReviewRows(results, scheduleInference.type);
       renderPhotoCards();
       renderReviewRows();
       renderReviewSummary();
+      renderScheduleReview();
       showReviewPhoto(0);
       showManagerStage('review');
     } catch (error) {
@@ -919,24 +1210,20 @@
   function beginManualReview() {
     revokePhotos();
     reviewSource = 'manual';
-    recognitionMeta = { dates: [], pageTypes: PAGE_TYPES.map(page => page.id), dateConflict: false };
+    recognitionMeta = {
+      ...emptyRecognitionMeta(),
+      pageTypes: PAGE_TYPES.map(page => page.id),
+      scheduleType: isWeekendDate(recentDates()[0]) ? 'weekend' : 'weekday',
+      suggestedScheduleType: isWeekendDate(recentDates()[0]) ? 'weekend' : 'weekday',
+      scheduleManuallyConfirmed: true
+    };
     $('vehicleManualDateField').hidden = false;
     $('vehicleImportDate').value = recentDates()[0];
-    reviewRows = ALL_TABLES.map(table => ({
-      table,
-      vehicle: '',
-      originalVehicle: '',
-      changedVehicle: '',
-      pageType: pageTypeForTable(table).id,
-      confidence: 0,
-      needsReview: true,
-      conflict: false,
-      note: '等待人工填写',
-      manuallyEdited: false
-    }));
+    reviewRows = buildManualReviewRows(recognitionMeta.scheduleType);
     revalidateReviewRows();
     renderReviewRows();
     renderReviewSummary();
+    renderScheduleReview();
     showReviewPhoto(0);
     showManagerStage('review');
   }
@@ -973,6 +1260,7 @@
     const filled = reviewRows.filter(row => formatVehicle(row.vehicle)).length;
     $('vehicleReviewSummary').textContent = '共' + reviewRows.length + '个表号，已填写' + filled + '个；' + flagged + '行需要确认，' + conflicts + '行涉及重复冲突。所有车号均可直接修改。';
     updateReviewDateStatus();
+    renderScheduleReview();
   }
 
   function updateReviewDateStatus() {
@@ -980,7 +1268,7 @@
     status.classList.remove('success', 'error');
     const selected = $('vehicleImportDate').value;
     if (reviewSource === 'manual') {
-      status.textContent = '手工录入日期：' + formatDateLabel(selected);
+      status.textContent = '手工录入日期：' + formatDateLabel(selected) + '；运行图类型由你确认';
       return;
     }
     if (recognitionMeta.dateConflict) {
@@ -1025,6 +1313,8 @@
     if (duplicateRows.length) return setReviewStatus('仍有重复车号，请修改后再保存。', 'error');
     if (reviewSource === 'photo' && recognitionMeta.dateConflict) return setReviewStatus('三张照片日期不一致，不能保存。', 'error');
     if (reviewSource === 'photo' && recognitionMeta.dates.length !== 3) return setReviewStatus('有照片未识别到日期，不能保存，请重新拍摄或重新识别。', 'error');
+    const scheduleType = $('vehicleReviewScheduleType').value;
+    if (!SCHEDULE_TYPES[scheduleType]) return setReviewStatus('请先人工确认本次是平日图还是双休日图。', 'error');
     const date = reviewSource === 'photo' ? recognitionMeta.dates[0] : $('vehicleImportDate').value;
     if (!recentDates().includes(date)) return setReviewStatus('运行日期不在当前可保存范围内。', 'error');
     const base = {};
@@ -1039,6 +1329,9 @@
       date,
       base,
       adjustments: [],
+      scheduleType,
+      scheduleEvidence: recognitionMeta.scheduleEvidence.slice(),
+      planCodes: recognitionMeta.planCodes.slice(),
       importedAt: new Date().toISOString(),
       source: reviewSource === 'photo' ? 'ai-photo-review' : 'manual'
     };
@@ -1047,6 +1340,7 @@
     revokePhotos();
     setReviewStatus('已保存。', 'success');
     refreshDateOptions();
+    syncQueryScheduleType(date);
     refreshVehicleOptions();
     closeManager();
   }
@@ -1054,8 +1348,11 @@
   function renderManageStage() {
     const data = dayData(selectedServiceDate);
     if (!data) return;
-    $('vehicleManageSummary').textContent = formatDateLabel(selectedServiceDate) + '：' + Object.keys(data.base || {}).length + '条初始对应，' + (data.adjustments || []).length + '次运行中调整。';
-    $('vehicleBaseBody').innerHTML = ALL_TABLES.map(table => '<tr><td><strong>' + table + '号表</strong></td><td><input data-base-table="' + table + '" value="' + escapeHtml(data.base[table] || '') + '" maxlength="3" inputmode="numeric" aria-label="' + table + '号表初始车号"></td></tr>').join('');
+    const scheduleType = dayScheduleType(data, selectedServiceDate);
+    data.scheduleType = scheduleType;
+    $('vehicleManageSummary').textContent = formatDateLabel(selectedServiceDate) + ' · ' + SCHEDULE_TYPES[scheduleType].label + '：' + Object.keys(data.base || {}).length + '条初始对应，' + (data.adjustments || []).length + '次运行中调整。';
+    $('vehicleBaseBody').innerHTML = tablesForScheduleType(scheduleType).map(table => '<tr><td><strong>' + table + '号表</strong></td><td><input data-base-table="' + table + '" value="' + escapeHtml(data.base[table] || '') + '" maxlength="3" inputmode="numeric" aria-label="' + table + '号表初始车号"></td></tr>').join('');
+    fillAdjustmentTableOptions(scheduleType);
     const now = new Date();
     $('vehicleAdjustTime').value = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
     $('vehicleAdjustNumber').value = '';
@@ -1175,6 +1472,26 @@
     refreshVehicleOptions();
     renderManageStage();
     setManageStatus('已撤销：' + (removed.description || '最近一次换表调整'), 'success');
+  }
+
+  if (/[?&]vehicle-lab-test(?:=|&|$)/.test(window.location.search)) {
+    window.__vehicleLabTest = {
+      classify(date, pages, batch = {}) {
+        const results = pages.map(page => ({
+          rawRows: page.rows || page.mappings || [],
+          pageType: page.pageType || page.page_type || pageTypeFromText(page.depot || page.maintenance_center) || detectPageType(page.rows || page.mappings || []),
+          date: parseRecognizedDate(page.date || page.service_date || page.document_date || page.plan_date),
+          planCode: recognizedPlanCode(page),
+          explicitScheduleType: recognizedScheduleType(page)
+        }));
+        const inference = inferScheduleType(date, results, batch);
+        return {
+          ...inference,
+          reviewTables: buildRecognizedReviewRows(results, inference.type).map(row => row.table)
+        };
+      },
+      tablesForScheduleType
+    };
   }
 
   cleanupStore();
