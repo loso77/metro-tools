@@ -1606,6 +1606,44 @@ body.vehicle-lab-refined .vehicle-review-toolbar {
   margin-bottom: 14px;
 }
 
+body.vehicle-lab-refined .vehicle-schedule-review {
+  display: grid;
+  grid-template-columns: auto minmax(130px, 180px) minmax(0, 1fr);
+  align-items: center;
+  gap: 10px 12px;
+  margin: 0 0 14px;
+  padding: 12px;
+  border: 1px solid var(--lab-border);
+  border-radius: var(--lab-radius);
+  background: rgba(255, 255, 255, .025);
+}
+
+body.vehicle-lab-refined .vehicle-schedule-review label {
+  color: var(--lab-foreground);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+body.vehicle-lab-refined .vehicle-schedule-review select {
+  min-height: 38px;
+  padding: 7px 30px 7px 10px;
+  border-color: var(--lab-border-strong);
+  background-color: var(--lab-secondary);
+  color: var(--lab-foreground);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+body.vehicle-lab-refined .vehicle-schedule-evidence {
+  color: var(--lab-muted-foreground);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+body.vehicle-lab-refined .vehicle-schedule-evidence.alert {
+  color: #ffc078;
+}
+
 body.vehicle-lab-refined .vehicle-filter-group {
   gap: 6px;
 }
@@ -2652,6 +2690,14 @@ body.vehicle-lab-refined .vehicle-table-wrap {
     display: grid;
     grid-template-columns: 1fr;
     justify-items: start;
+  }
+
+  body.vehicle-lab-refined .vehicle-schedule-review {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  body.vehicle-lab-refined .vehicle-schedule-evidence {
+    grid-column: 1 / -1;
   }
 
   body.vehicle-lab-refined #vehicleReviewStage .vehicle-table,
