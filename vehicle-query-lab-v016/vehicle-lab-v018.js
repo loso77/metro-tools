@@ -282,6 +282,8 @@
   }
 
   function buildInterface() {
+    if (document.body.dataset.vehicleLabBuilt === 'true') return;
+    document.body.dataset.vehicleLabBuilt = 'true';
     const dateLabel = $('dateLabel');
     const modeTabs = document.querySelector('.mode-tabs');
     const viewModeRow = document.querySelector('.view-mode-row');
@@ -292,15 +294,10 @@
     const queryPageMessage = $('queryPageMessage');
     const importSection = document.querySelector('.import-section');
     const cardLeft = document.querySelector('.card-left');
-    const card = document.querySelector('body > .card');
-    const installBanner = document.querySelector('body > .install-banner');
     const tableInput = $('tableInput');
     const pageTitle = document.querySelector('body > h1');
     const pageSubtitle = document.querySelector('body > .subtitle');
     const themeMeta = document.querySelector('meta[name="theme-color"]');
-    const appShell = document.createElement('div');
-    appShell.className = 'vehicle-lab-app';
-    appShell.id = 'vehicleLabApp';
 
     document.body.classList.add('vehicle-lab-dark', 'vehicle-lab-refined');
     if (pageTitle) pageTitle.textContent = '列车车号查询';
@@ -308,15 +305,14 @@
     if (themeMeta) themeMeta.setAttribute('content', '#000000');
 
     if (pageTitle && pageSubtitle) {
-      pageTitle.insertAdjacentElement('beforebegin', appShell);
       const brand = document.createElement('header');
       brand.className = 'vehicle-lab-brand';
-      brand.insertAdjacentHTML('afterbegin', brandMarkMarkup() + '<div class="vehicle-brand-copy"></div><span class="vehicle-lab-badge" id="vehicleRunningDateBadge" hidden></span>');
+      pageTitle.insertAdjacentElement('beforebegin', brand);
+      brand.insertAdjacentHTML('afterbegin', brandMarkMarkup() + '<div class="vehicle-brand-copy"></div>');
       const copy = brand.querySelector('.vehicle-brand-copy');
       copy.appendChild(pageTitle);
       copy.appendChild(pageSubtitle);
-      appShell.appendChild(brand);
-      appShell.insertAdjacentHTML('beforeend',
+      brand.insertAdjacentHTML('afterend',
         '<nav class="vehicle-lab-tabs" aria-label="车号实验功能">' +
           '<button type="button" id="vehicleTopUpload">上传照片</button>' +
           '<button type="button" id="vehicleTopReview">审核校对</button>' +
@@ -330,12 +326,11 @@
     const queryCenter = document.createElement('div');
     queryCenter.className = 'vehicle-query-center';
     const clock = $('clock');
-    appShell.appendChild(queryHero);
+    clock.insertAdjacentElement('beforebegin', queryHero);
     queryHero.appendChild(queryCenter);
-    queryCenter.insertAdjacentHTML('afterbegin', '<div class="vehicle-query-heading"><strong>🚇 列车查询</strong><span>北京地铁1号线 · 实时位置定位</span></div>');
     queryCenter.appendChild(clock);
     queryCenter.appendChild(dateLabel);
-    queryHero.insertAdjacentHTML('beforeend', '<button type="button" class="vehicle-manager-launch" id="vehicleManagerLaunch">导入车号</button>');
+    queryHero.insertAdjacentHTML('beforeend', '<div class="vehicle-manager-tools"><button type="button" class="vehicle-manager-launch" id="vehicleManagerLaunch">导入车号</button></div>');
     modeTabs.insertAdjacentHTML('beforebegin',
       '<div class="vehicle-date-panel" id="vehicleDatePanel" hidden>' +
         '<div class="vehicle-date-row"><label for="vehicleServiceDate">运行日期</label><select class="vehicle-date-select" id="vehicleServiceDate"></select></div>' +
@@ -354,7 +349,7 @@
 
     const controlCard = document.createElement('section');
     controlCard.className = 'vehicle-control-card';
-    cardLeft.insertAdjacentElement('afterbegin', controlCard);
+    queryHero.insertAdjacentElement('afterend', controlCard);
     [
       $('vehicleDatePanel'),
       modeTabs,
@@ -369,9 +364,6 @@
       if (element) controlCard.appendChild(element);
     });
 
-    if (card) appShell.appendChild(card);
-    if (installBanner) appShell.appendChild(installBanner);
-
     document.body.insertAdjacentHTML('beforeend', managerMarkup());
     fillStaticOptions();
     bindEvents();
@@ -383,7 +375,7 @@
   function managerMarkup() {
     return '<section class="vehicle-manager-page" id="vehicleManagerPage">' +
       '<header class="vehicle-manager-header">' +
-        '<div class="vehicle-manager-brand">' + brandMarkMarkup() + '<div><h2>列车车号查询</h2><p>实验功能 · 不影响现有列车查询</p></div></div>' +
+        '<div class="vehicle-manager-brand">' + brandMarkMarkup() + '<div><h2>列车车号查询</h2><p>实验功能 · 独立运行</p></div></div>' +
         '<span class="vehicle-lab-badge" id="vehicleManagerDateBadge" hidden></span>' +
         '<button type="button" class="vehicle-compact-button" id="vehicleManagerBack">返回查询</button>' +
       '</header>' +
@@ -518,7 +510,7 @@
   function syncManagerButton() {
     const data = dayData(selectedServiceDate);
     $('vehicleManagerLaunch').textContent = data ? '管理车号' : '导入车号';
-    const badgeText = data ? '运行日期 ' + formatDateLabel(selectedServiceDate).replace(/\s+周./, '') : '';
+    const badgeText = data ? '运行日期' + formatDateLabel(selectedServiceDate).replace(/\s+周./, '') : '';
     [$('vehicleRunningDateBadge'), $('vehicleManagerDateBadge')].forEach(badge => {
       if (!badge) return;
       badge.textContent = badgeText;
@@ -1013,11 +1005,14 @@
   }
 
   function showReviewPhoto(index) {
+    const photoPanel = document.querySelector('.vehicle-review-photo');
     if (!photos.length) {
+      if (photoPanel) photoPanel.hidden = true;
       $('vehicleReviewPhoto').removeAttribute('src');
       $('vehicleReviewPhoto').alt = '手工录入模式，没有原照片';
       return;
     }
+    if (photoPanel) photoPanel.hidden = false;
     reviewPhotoIndex = (index + photos.length) % photos.length;
     $('vehicleReviewPhoto').src = photos[reviewPhotoIndex].url;
     $('vehicleReviewPhoto').alt = '第' + (reviewPhotoIndex + 1) + '张运行计划原照片';
