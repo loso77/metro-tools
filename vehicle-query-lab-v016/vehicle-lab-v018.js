@@ -314,6 +314,12 @@
     return PAGE_TYPES.find(page => number >= page.start && number <= page.end) || null;
   }
 
+  function tableBelongsToPageType(table, pageType) {
+    const page = pageTypeById(pageType);
+    const number = Number(table);
+    return Boolean(page && number >= page.start && number <= page.end);
+  }
+
   function pageTypeFromText(text) {
     const value = String(text || '');
     if (/古城|古段/.test(value)) return 'gucheng';
@@ -1091,7 +1097,11 @@
     results.forEach(result => {
       result.rawRows.forEach(raw => {
         const table = formatTable(raw.table_no || raw.table || raw.tableNumber);
-        if (table && pageTypeForTable(table)) rawByTable.set(table, { raw, pageType: result.pageType });
+        // 每张照片只能贡献本车辆段主表范围内的数据，避免把“预备”栏的
+        // 01、13、14……误当成另一车辆段的正式表号。
+        if (table && tableBelongsToPageType(table, result.pageType)) {
+          rawByTable.set(table, { raw, pageType: result.pageType });
+        }
       });
     });
     const preserved = new Map(preservedRows.filter(row => row.manuallyEdited).map(row => [row.table, row]));
@@ -1126,6 +1136,20 @@
     revalidateReviewRows();
     renderReviewRows();
     renderReviewSummary();
+  }
+
+  function currentReviewScheduleType() {
+    if (SCHEDULE_TYPES[recognitionMeta.scheduleType]) return recognitionMeta.scheduleType;
+    const selected = $('vehicleReviewScheduleType') && $('vehicleReviewScheduleType').value;
+    if (SCHEDULE_TYPES[selected]) return selected;
+    return recognitionMeta.suggestedScheduleType;
+  }
+
+  function scopedReviewRows() {
+    const scheduleType = currentReviewScheduleType();
+    if (!SCHEDULE_TYPES[scheduleType]) return reviewRows.slice();
+    const allowed = new Set(tablesForScheduleType(scheduleType));
+    return reviewRows.filter(row => allowed.has(row.table));
   }
 
   function renderScheduleReview() {
@@ -1232,6 +1256,8 @@
     const vehicles = new Map();
     reviewRows.forEach(row => {
       row.conflict = false;
+    });
+    scopedReviewRows().forEach(row => {
       const vehicle = formatVehicle(row.vehicle);
       if (!vehicle) return;
       if (!vehicles.has(vehicle)) vehicles.set(vehicle, []);
@@ -1244,7 +1270,8 @@
 
   function renderReviewRows() {
     revalidateReviewRows();
-    $('vehicleReviewBody').innerHTML = reviewRows.map(row => {
+    const visibleRows = scopedReviewRows();
+    $('vehicleReviewBody').innerHTML = visibleRows.map(row => {
       const flagged = row.needsReview || row.conflict || !formatVehicle(row.vehicle);
       const hidden = reviewFilter === 'flagged' && !flagged;
       const classes = [flagged ? 'needs-review' : '', row.conflict ? 'conflict' : '', hidden ? 'hidden-row' : ''].filter(Boolean).join(' ');
@@ -1255,10 +1282,11 @@
   }
 
   function renderReviewSummary() {
-    const flagged = reviewRows.filter(row => row.needsReview || row.conflict || !formatVehicle(row.vehicle)).length;
-    const conflicts = reviewRows.filter(row => row.conflict).length;
-    const filled = reviewRows.filter(row => formatVehicle(row.vehicle)).length;
-    $('vehicleReviewSummary').textContent = '共' + reviewRows.length + '个表号，已填写' + filled + '个；' + flagged + '行需要确认，' + conflicts + '行涉及重复冲突。所有车号均可直接修改。';
+    const visibleRows = scopedReviewRows();
+    const flagged = visibleRows.filter(row => row.needsReview || row.conflict || !formatVehicle(row.vehicle)).length;
+    const conflicts = visibleRows.filter(row => row.conflict).length;
+    const filled = visibleRows.filter(row => formatVehicle(row.vehicle)).length;
+    $('vehicleReviewSummary').textContent = '共' + visibleRows.length + '个表号，已填写' + filled + '个；' + flagged + '行需要确认，' + conflicts + '行涉及重复冲突。所有车号均可直接修改。';
     updateReviewDateStatus();
     renderScheduleReview();
   }
@@ -1308,17 +1336,20 @@
 
   function saveReviewedImport() {
     setReviewStatus('');
+    const scheduleType = $('vehicleReviewScheduleType').value;
+    if (!SCHEDULE_TYPES[scheduleType]) return setReviewStatus('请先人工确认本次是平日图还是双休日图。', 'error');
+    recognitionMeta.scheduleType = scheduleType;
     revalidateReviewRows();
-    const duplicateRows = reviewRows.filter(row => row.conflict);
+    const allowedTables = new Set(tablesForScheduleType(scheduleType));
+    const rowsToSave = reviewRows.filter(row => allowedTables.has(row.table));
+    const duplicateRows = rowsToSave.filter(row => row.conflict);
     if (duplicateRows.length) return setReviewStatus('仍有重复车号，请修改后再保存。', 'error');
     if (reviewSource === 'photo' && recognitionMeta.dateConflict) return setReviewStatus('三张照片日期不一致，不能保存。', 'error');
     if (reviewSource === 'photo' && recognitionMeta.dates.length !== 3) return setReviewStatus('有照片未识别到日期，不能保存，请重新拍摄或重新识别。', 'error');
-    const scheduleType = $('vehicleReviewScheduleType').value;
-    if (!SCHEDULE_TYPES[scheduleType]) return setReviewStatus('请先人工确认本次是平日图还是双休日图。', 'error');
     const date = reviewSource === 'photo' ? recognitionMeta.dates[0] : $('vehicleImportDate').value;
     if (!recentDates().includes(date)) return setReviewStatus('运行日期不在当前可保存范围内。', 'error');
     const base = {};
-    reviewRows.forEach(row => {
+    rowsToSave.forEach(row => {
       const vehicle = formatVehicle(row.vehicle);
       if (vehicle) base[row.table] = vehicle;
     });
