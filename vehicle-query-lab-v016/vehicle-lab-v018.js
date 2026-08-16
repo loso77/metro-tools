@@ -63,7 +63,8 @@
       scheduleConflicts: [],
       planCodes: [],
       importMode: 'full',
-      targetPageType: ''
+      targetPageType: '',
+      targetPageTypes: []
     };
   }
 
@@ -354,11 +355,26 @@
   }
 
   function isSupportedPhotoCount(count) {
-    return count === 1 || count === 3;
+    return count >= 1 && count <= 3;
   }
 
-  function mergeSinglePageData(existing, rows, pageType, scheduleType) {
-    const targetTables = new Set(tablesForPageType(pageType, scheduleType));
+  function partialImportPageTypes() {
+    const values = recognitionMeta.targetPageTypes && recognitionMeta.targetPageTypes.length
+      ? recognitionMeta.targetPageTypes
+      : [recognitionMeta.targetPageType];
+    return [...new Set(values.filter(Boolean))];
+  }
+
+  function isPartialImport() {
+    return recognitionMeta.importMode === 'partial' || recognitionMeta.importMode === 'single';
+  }
+
+  function mergeSelectedPageData(existing, rows, pageTypes, scheduleType) {
+    const selectedPages = new Set(pageTypes.filter(Boolean));
+    const targetTables = new Set(tablesForScheduleType(scheduleType).filter(table => {
+      const page = pageTypeForTable(table);
+      return Boolean(page && selectedPages.has(page.id));
+    }));
     const base = Object.assign({}, existing.base || {});
     targetTables.forEach(table => { delete base[table]; });
     rows.forEach(row => {
@@ -502,12 +518,12 @@
       '<div class="vehicle-flow-steps" aria-label="车号实验功能"><button type="button" data-vehicle-nav="upload">上传照片</button><button type="button" data-vehicle-nav="review">审核校对</button><button type="button" data-vehicle-nav="query">列车查询</button></div>' +
 
       '<div class="vehicle-stage" id="vehicleUploadStage">' +
-        '<div class="vehicle-section-head"><div><h3>上传运行计划</h3><p class="vehicle-muted">可选择一张建立或更新对应表号范围，也可一次选择三张完整导入；上传顺序不限。</p></div></div>' +
-        '<div class="vehicle-auto-date-panel"><span>运行日期</span><strong>由照片自动识别</strong><small>单张照片可建立或覆盖所属表号范围；三张日期一致时完整建立当天数据。</small></div>' +
-        '<label class="vehicle-upload-label">选择或拍摄一张／三张照片<input id="vehiclePhotoInput" type="file" accept="image/jpeg,image/png,image/webp" multiple></label>' +
+        '<div class="vehicle-section-head"><div><h3>上传运行计划</h3><p class="vehicle-muted">可选择1至3张：只覆盖所选照片对应的表号范围；三张齐全时完整导入。上传顺序不限。</p></div></div>' +
+        '<div class="vehicle-auto-date-panel"><span>运行日期</span><strong>由照片自动识别</strong><small>所选照片日期必须一致；两张可作为同一批次整体更新，避免跨范围换车被误判为冲突。</small></div>' +
+        '<label class="vehicle-upload-label">选择或拍摄1至3张照片<input id="vehiclePhotoInput" type="file" accept="image/jpeg,image/png,image/webp" multiple></label>' +
         '<div class="vehicle-photo-grid" id="vehiclePhotoGrid"></div>' +
         '<div class="vehicle-progress" id="vehicleRecognitionProgress"><span></span></div>' +
-        '<p class="vehicle-status" id="vehicleRecognitionStatus">请选择一张或三张照片。</p>' +
+        '<p class="vehicle-status" id="vehicleRecognitionStatus">请选择1至3张照片。</p>' +
         '<div class="vehicle-actions"><button type="button" id="vehicleRecognizeButton" disabled>上传并开始识别</button><button type="button" class="vehicle-secondary-button" id="vehicleManualImportButton">手工建立对应关系</button></div>' +
         '<p class="vehicle-ai-quota" id="vehicleAiQuota" hidden></p>' +
       '</div>' +
@@ -897,7 +913,7 @@
     Object.entries(stages).forEach(([key, element]) => element.classList.toggle('active', key === name));
     document.querySelectorAll('[data-vehicle-nav]').forEach(step => step.classList.toggle('active', step.dataset.vehicleNav === name || (name === 'manage' && step.dataset.vehicleNav === 'review')));
     if (name === 'upload') {
-      setRecognitionStatus(photos.length ? '已选择' + photos.length + '张照片。' : '请选择一张或三张照片。');
+      setRecognitionStatus(photos.length ? '已选择' + photos.length + '张照片。' : '请选择1至3张照片。');
       loadVehicleQuota();
     }
     if (name === 'manage') renderManageStage();
@@ -920,9 +936,9 @@
     photos = files.map((file, index) => ({ file, url: URL.createObjectURL(file), index, manualPageType: '', detectedPageType: '', recognizedDate: '', planCode: '', result: null }));
     renderPhotoCards();
     $('vehicleRecognizeButton').disabled = !isSupportedPhotoCount(photos.length);
-    if (files.length === 1) setRecognitionStatus('已选择1张照片，将识别日期与表号范围，建立或覆盖该范围数据。', 'success');
-    else if (files.length === 3) setRecognitionStatus('已选择3张照片，将完整识别并导入当天数据。', 'success');
-    else setRecognitionStatus('请选择1张进行局部更新，或选择3张进行完整导入；当前已选择' + files.length + '张。', 'error');
+    if (files.length === 3) setRecognitionStatus('已选择3张照片，将完整识别并导入当天数据。', 'success');
+    else if (files.length) setRecognitionStatus('已选择' + files.length + '张照片，将作为同一批次整体更新对应表号范围。', 'success');
+    else setRecognitionStatus('请选择1至3张照片。', 'error');
   }
 
   function renderPhotoCards() {
@@ -1035,12 +1051,12 @@
 
   async function recognizePhotoBatch() {
     const images = await Promise.all(photos.map(photo => compressPhoto(photo.file)));
-    const singleUpdate = photos.length === 1;
+    const partialUpdate = photos.length < PAGE_TYPES.length;
     const request = {
       task: 'daily_vehicle_mapping',
       images,
       provider: 'doubao',
-      import_mode: singleUpdate ? 'single_page_update' : 'full_day_import',
+      import_mode: partialUpdate ? 'partial_page_update' : 'full_day_import',
       existing_service_dates: Object.keys(store.days || {}),
       expected_pages: PAGE_TYPES.map(page => ({ id: page.id, label: page.label, table_start: page.start, table_end: page.end })),
       required_metadata: ['service_date', 'document_title', 'plan_code', 'schedule_type'],
@@ -1048,15 +1064,15 @@
         { id: 'weekday', label: '平日图', title_codes: ['PR'], expected_tables: ALL_TABLES },
         { id: 'weekend', label: '双休日图', title_codes: ['SX'], compatible_title_codes: ['SGJR'], expected_tables: WEEKEND_TABLES }
       ],
-      classification_rule: singleUpdate
-        ? '识别这一张照片的日期、所属检修中心或主表号范围及全部有效车号；单张照片用于覆盖该日期已有数据中的对应范围。'
+      classification_rule: partialUpdate
+        ? '逐张识别所选照片的日期、所属检修中心或主表号范围及全部有效车号；所选照片将作为同一批次覆盖该日期已有数据中的对应范围。'
         : '先逐张识别日期并确认三张日期一致，再综合标题代号与实际主表号数量判断平日图或双休日图；SGJR是中性代号，不得因其与SX不同而拒绝同日期照片。'
     };
     try {
       return await workerRequest('/recognize-vehicle-map', request);
     } catch (error) {
       if ([404, 405].includes(error.status)) {
-        throw new Error('当前AI服务还没有三图车号识别接口，请先更新并部署 TrainSheet-AI 后再试');
+        throw new Error('当前AI服务还没有车号识别接口，请先更新并部署 TrainSheet-AI 后再试');
       }
       throw error;
     }
@@ -1287,7 +1303,7 @@
           recognitionMeta.results,
           scheduleType,
           previous,
-          recognitionMeta.importMode === 'single' ? [recognitionMeta.targetPageType] : []
+          isPartialImport() ? partialImportPageTypes() : []
         )
       : buildManualReviewRows(scheduleType, previous);
     revalidateReviewRows();
@@ -1308,7 +1324,10 @@
     const allowed = new Set(tablesForScheduleType(scheduleType));
     return reviewRows.filter(row => {
       if (!allowed.has(row.table)) return false;
-      return recognitionMeta.importMode !== 'single' || tableBelongsToPageType(row.table, recognitionMeta.targetPageType);
+      if (!isPartialImport()) return true;
+      const selectedPages = new Set(partialImportPageTypes());
+      const page = pageTypeForTable(row.table);
+      return Boolean(page && selectedPages.has(page.id));
     });
   }
 
@@ -1316,26 +1335,27 @@
     const select = $('vehicleReviewScheduleType');
     const evidence = $('vehicleScheduleEvidence');
     if (!select || !evidence) return;
-    const singleUpdate = recognitionMeta.importMode === 'single';
-    const existingSingleDate = singleUpdate ? dayData(recognitionMeta.dates[0]) : null;
-    select.disabled = Boolean(existingSingleDate);
+    const partialUpdate = isPartialImport();
+    const existingPartialDate = partialUpdate ? dayData(recognitionMeta.dates[0]) : null;
+    select.disabled = Boolean(existingPartialDate);
     select.value = recognitionMeta.scheduleNeedsConfirmation && !recognitionMeta.scheduleManuallyConfirmed
       ? ''
       : recognitionMeta.scheduleType;
     const label = SCHEDULE_TYPES[recognitionMeta.suggestedScheduleType || recognitionMeta.scheduleType];
     const parts = [];
     if (reviewSource === 'photo') {
-      if (singleUpdate) {
-        const page = pageTypeById(recognitionMeta.targetPageType);
-        const affected = existingSingleDate
-          ? mergeSinglePageData(existingSingleDate, [], recognitionMeta.targetPageType, recognitionMeta.scheduleType).removedAdjustments.length
+      if (partialUpdate) {
+        const targetPages = partialImportPageTypes();
+        const pageLabels = targetPages.map(pageType => pageTypeById(pageType)?.label).filter(Boolean).join('、');
+        const affected = existingPartialDate
+          ? mergeSelectedPageData(existingPartialDate, [], targetPages, recognitionMeta.scheduleType).removedAdjustments.length
           : 0;
-        if (existingSingleDate) {
-          parts.push('单张更新：沿用当天“' + (SCHEDULE_TYPES[recognitionMeta.scheduleType] || SCHEDULE_TYPES.weekday).label + '”，只覆盖' + (page ? page.label : '已识别') + '对应的表号范围。');
+        if (existingPartialDate) {
+          parts.push('局部更新：沿用当天“' + (SCHEDULE_TYPES[recognitionMeta.scheduleType] || SCHEDULE_TYPES.weekday).label + '”，将' + targetPages.length + '张照片作为一个批次，整体覆盖' + (pageLabels || '已识别') + '的表号范围。');
         } else {
           parts.push(recognitionMeta.scheduleNeedsConfirmation && !recognitionMeta.scheduleManuallyConfirmed
-            ? '首次单张导入：AI倾向“' + (label ? label.label : '未知类型') + '”，请确认后建立部分数据。'
-            : '首次单张导入：已判定为“' + (SCHEDULE_TYPES[recognitionMeta.scheduleType] || SCHEDULE_TYPES.weekday).label + '”，将建立' + (page ? page.label : '该照片') + '的部分数据。');
+            ? '首次局部导入：AI倾向“' + (label ? label.label : '未知类型') + '”，请确认后建立部分数据。'
+            : '首次局部导入：已判定为“' + (SCHEDULE_TYPES[recognitionMeta.scheduleType] || SCHEDULE_TYPES.weekday).label + '”，将建立' + (pageLabels || '所选照片') + '的部分数据。');
         }
         if (affected) parts.push('保存时将移除' + affected + '条涉及该范围的旧换表记录，其他换表记录不受影响。');
       } else {
@@ -1354,32 +1374,33 @@
   }
 
   async function recognizePhotos() {
-    if (!isSupportedPhotoCount(photos.length)) return setRecognitionStatus('请选择一张进行局部更新，或选择三张进行完整导入。', 'error');
-    const singleUpdate = photos.length === 1;
+    if (!isSupportedPhotoCount(photos.length)) return setRecognitionStatus('请选择1至3张照片。', 'error');
+    const partialUpdate = photos.length < PAGE_TYPES.length;
     $('vehicleRecognizeButton').disabled = true;
     $('vehicleRecognitionProgress').classList.add('active');
-    setRecognitionStatus(singleUpdate ? '正在准备单张照片……' : '正在准备三张照片……');
+    setRecognitionStatus('正在准备' + photos.length + '张照片……');
     try {
-      setRecognitionStatus(singleUpdate ? '正在识别照片日期、范围和车号，请稍候……' : '正在一次识别三张照片，请稍候……');
+      setRecognitionStatus('正在一次识别' + photos.length + '张照片的日期、范围和车号，请稍候……');
       const response = await recognizePhotoBatch();
       showVehicleQuota(response.usage);
       const responsePages = Array.isArray(response.pages) ? response.pages : [];
       const results = photos.map((photo, index) => {
-        const pageResponse = responsePages.find(page => Number(page.image_index) === index + 1) || responsePages[index] || (singleUpdate ? response : {});
+        const pageResponse = responsePages.find(page => Number(page.image_index) === index + 1) || responsePages[index] || (photos.length === 1 ? response : {});
         return normalizeRecognition(photo, pageResponse, response);
       });
       const pageTypes = results.map(result => result.pageType);
       const missingType = pageTypes.findIndex(type => !type);
       if (missingType >= 0) throw new Error('第' + (missingType + 1) + '张照片无法自动判断表号范围，请在照片下方手工选择后重新识别');
-      if (!singleUpdate && new Set(pageTypes).size !== 3) throw new Error('检测到重复的检修中心照片，请检查三张照片类型后重新识别');
+      if (new Set(pageTypes).size !== photos.length) throw new Error('检测到重复的检修中心照片，请检查所选照片类型后重新识别');
       const dates = results.map(result => result.date).filter(Boolean);
       const dateConflict = Boolean(response.date_conflict) || new Set(dates).size > 1;
       const dateReady = dates.length === photos.length && !dateConflict;
       const recognizedDate = dateReady ? dates[0] : '';
-      if (singleUpdate) {
-        if (!dateReady) throw new Error('单张更新必须识别出明确日期，请重新拍摄或在照片下方确认类型后重试');
+      if (partialUpdate) {
+        if (!dateReady) throw new Error('局部更新的所有照片必须识别出同一个明确日期，请检查后重试');
         const existing = dayData(recognizedDate);
-        const page = pageTypeById(pageTypes[0]);
+        const pages = pageTypes.map(pageTypeById).filter(Boolean);
+        const pageLabels = pages.map(page => page.label).join('、');
         const observedInference = inferScheduleType(recognizedDate, results, response);
         const existingScheduleType = existing ? dayScheduleType(existing, recognizedDate) : '';
         const conflictingCode = existing ? conflictingStrongPlanCode(existingScheduleType, observedInference.planCodes) : '';
@@ -1390,12 +1411,12 @@
           ? {
               type: existingScheduleType,
               needsConfirmation: false,
-              evidence: ['已匹配' + formatDateLabel(recognizedDate) + '的现有数据', '识别为' + page.label + '表号范围'],
+              evidence: ['已匹配' + formatDateLabel(recognizedDate) + '的现有数据', '识别为' + pageLabels + '表号范围'],
               conflicts: [],
               planCodes: observedInference.planCodes
             }
           : observedInference;
-        if (!existing) scheduleInference.evidence.unshift('这是该日期首次单张导入，将建立部分数据');
+        if (!existing) scheduleInference.evidence.unshift('这是该日期首次局部导入，将建立所选范围的数据');
         recognitionMeta = {
           ...emptyRecognitionMeta(),
           dates,
@@ -1408,10 +1429,11 @@
           scheduleEvidence: scheduleInference.evidence,
           scheduleConflicts: scheduleInference.conflicts,
           planCodes: scheduleInference.planCodes,
-          importMode: 'single',
-          targetPageType: page.id
+          importMode: 'partial',
+          targetPageType: pageTypes.length === 1 ? pageTypes[0] : '',
+          targetPageTypes: pageTypes
         };
-        reviewRows = buildRecognizedReviewRows(results, scheduleInference.type, [], [page.id]);
+        reviewRows = buildRecognizedReviewRows(results, scheduleInference.type, [], pageTypes);
       } else {
         const scheduleInference = inferScheduleType(recognizedDate, results, response);
         if (!dateReady) {
@@ -1485,9 +1507,13 @@
     vehicles.forEach(rows => {
       if (rows.length > 1) rows.forEach(row => { row.conflict = true; });
     });
-    if (recognitionMeta.importMode === 'single') {
+    if (isPartialImport()) {
       const existing = dayData(recognitionMeta.dates[0]);
-      const targetTables = new Set(tablesForPageType(recognitionMeta.targetPageType, recognitionMeta.scheduleType));
+      const selectedPages = new Set(partialImportPageTypes());
+      const targetTables = new Set(tablesForScheduleType(recognitionMeta.scheduleType).filter(table => {
+        const page = pageTypeForTable(table);
+        return Boolean(page && selectedPages.has(page.id));
+      }));
       const outsideVehicles = new Set(Object.entries((existing && existing.base) || {})
         .filter(([table]) => !targetTables.has(formatTable(table)))
         .map(([, vehicle]) => formatVehicle(vehicle))
@@ -1516,9 +1542,9 @@
     const flagged = visibleRows.filter(row => row.needsReview || row.conflict || !formatVehicle(row.vehicle)).length;
     const conflicts = visibleRows.filter(row => row.conflict).length;
     const filled = visibleRows.filter(row => formatVehicle(row.vehicle)).length;
-    const page = pageTypeById(recognitionMeta.targetPageType);
-    const singlePrefix = recognitionMeta.importMode === 'single' ? '单张更新' + (page ? page.label : '') + '范围：' : '';
-    $('vehicleReviewSummary').textContent = singlePrefix + '共' + visibleRows.length + '个表号，已填写' + filled + '个；' + flagged + '行需要确认，' + conflicts + '行涉及重复冲突。所有车号均可直接修改。';
+    const pageLabels = partialImportPageTypes().map(pageType => pageTypeById(pageType)?.label).filter(Boolean).join('、');
+    const partialPrefix = isPartialImport() ? '局部更新' + pageLabels + '范围：' : '';
+    $('vehicleReviewSummary').textContent = partialPrefix + '共' + visibleRows.length + '个表号，已填写' + filled + '个；' + flagged + '行需要确认，' + conflicts + '行涉及重复冲突。所有车号均可直接修改。';
     updateReviewDateStatus();
     renderScheduleReview();
   }
@@ -1536,7 +1562,7 @@
       status.classList.add('error');
       return;
     }
-    const expectedDates = recognitionMeta.importMode === 'single' ? 1 : 3;
+    const expectedDates = recognitionMeta.pageTypes.length || 3;
     if (recognitionMeta.dates.length !== expectedDates) {
       status.textContent = '有照片未识别到日期，请重新拍摄或重新识别';
       status.classList.add('error');
@@ -1574,12 +1600,13 @@
     recognitionMeta.scheduleType = scheduleType;
     revalidateReviewRows();
     const allowedTables = new Set(tablesForScheduleType(scheduleType));
+    const selectedPages = new Set(partialImportPageTypes());
     const rowsToSave = reviewRows.filter(row => allowedTables.has(row.table) && (
-      recognitionMeta.importMode !== 'single' || tableBelongsToPageType(row.table, recognitionMeta.targetPageType)
+      !isPartialImport() || selectedPages.has(pageTypeForTable(row.table)?.id)
     ));
     const duplicateRows = rowsToSave.filter(row => row.conflict);
     if (duplicateRows.length) return setReviewStatus('仍有重复车号，请修改后再保存。', 'error');
-    const expectedDates = recognitionMeta.importMode === 'single' ? 1 : 3;
+    const expectedDates = recognitionMeta.pageTypes.length || 3;
     if (reviewSource === 'photo' && recognitionMeta.dateConflict) return setReviewStatus('照片日期不一致，不能保存。', 'error');
     if (reviewSource === 'photo' && recognitionMeta.dates.length !== expectedDates) return setReviewStatus('有照片未识别到日期，不能保存，请重新拍摄或重新识别。', 'error');
     const date = reviewSource === 'photo' ? recognitionMeta.dates[0] : $('vehicleImportDate').value;
@@ -1587,12 +1614,13 @@
     const filledRows = rowsToSave.filter(row => formatVehicle(row.vehicle));
     if (!filledRows.length) return setReviewStatus('当前照片范围至少需要填写一条表号和车号对应关系。', 'error');
     let candidate;
-    if (recognitionMeta.importMode === 'single') {
+    if (isPartialImport()) {
       const existing = dayData(date);
       const baseData = existing || { date, base: {}, adjustments: [] };
-      const merged = mergeSinglePageData(baseData, rowsToSave, recognitionMeta.targetPageType, scheduleType);
+      const targetPageTypes = partialImportPageTypes();
+      const merged = mergeSelectedPageData(baseData, rowsToSave, targetPageTypes, scheduleType);
       const importedPages = Object.fromEntries(importedPageTypes(existing).map(pageType => [pageType, true]));
-      importedPages[recognitionMeta.targetPageType] = true;
+      targetPageTypes.forEach(pageType => { importedPages[pageType] = true; });
       const complete = PAGE_TYPES.every(page => importedPages[page.id]);
       const now = new Date().toISOString();
       candidate = Object.assign({}, baseData, {
@@ -1607,7 +1635,8 @@
         updatedAt: now,
         source: complete ? 'ai-photo-incremental-complete' : 'ai-photo-partial-update',
         lastPartialUpdate: {
-          pageType: recognitionMeta.targetPageType,
+          pageType: targetPageTypes.length === 1 ? targetPageTypes[0] : '',
+          pageTypes: targetPageTypes,
           removedAdjustmentCount: merged.removedAdjustments.length,
           updatedAt: now
         }
@@ -1789,7 +1818,7 @@
       tablesForScheduleType,
       tablesForPageType,
       isSupportedPhotoCount,
-      mergeSinglePageData,
+      mergeSelectedPageData,
       importedPageTypes,
       importedPageCount,
       isTablePageImported,
