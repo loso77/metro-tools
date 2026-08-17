@@ -744,6 +744,7 @@
       row.vehicle = input.value.replace(/\D/g, '').slice(0, 3);
       row.manuallyEdited = true;
       revalidateReviewRows();
+      refreshRenderedReviewValidation();
       renderReviewSummary();
     });
     $('vehicleSaveImportButton').addEventListener('click', saveReviewedImport);
@@ -1497,6 +1498,7 @@
     const vehicles = new Map();
     reviewRows.forEach(row => {
       row.conflict = false;
+      row.conflictTables = [];
     });
     scopedReviewRows().forEach(row => {
       const vehicle = formatVehicle(row.vehicle);
@@ -1505,7 +1507,10 @@
       vehicles.get(vehicle).push(row);
     });
     vehicles.forEach(rows => {
-      if (rows.length > 1) rows.forEach(row => { row.conflict = true; });
+      if (rows.length > 1) rows.forEach(row => {
+        row.conflict = true;
+        row.conflictTables = rows.filter(peer => peer !== row).map(peer => peer.table);
+      });
     });
     if (isPartialImport()) {
       const existing = dayData(recognitionMeta.dates[0]);
@@ -1514,14 +1519,58 @@
         const page = pageTypeForTable(table);
         return Boolean(page && selectedPages.has(page.id));
       }));
-      const outsideVehicles = new Set(Object.entries((existing && existing.base) || {})
-        .filter(([table]) => !targetTables.has(formatTable(table)))
-        .map(([, vehicle]) => formatVehicle(vehicle))
-        .filter(Boolean));
-      reviewRows.forEach(row => {
-        if (outsideVehicles.has(formatVehicle(row.vehicle))) row.conflict = true;
+      const outsideVehicles = new Map();
+      Object.entries((existing && existing.base) || {}).forEach(([tableValue, vehicleValue]) => {
+        const table = formatTable(tableValue);
+        const vehicle = formatVehicle(vehicleValue);
+        if (!table || !vehicle || targetTables.has(table)) return;
+        if (!outsideVehicles.has(vehicle)) outsideVehicles.set(vehicle, []);
+        outsideVehicles.get(vehicle).push(table);
+      });
+      scopedReviewRows().forEach(row => {
+        const duplicateTables = outsideVehicles.get(formatVehicle(row.vehicle)) || [];
+        if (!duplicateTables.length) return;
+        row.conflict = true;
+        row.conflictTables = row.conflictTables.concat(duplicateTables);
       });
     }
+    reviewRows.forEach(row => {
+      row.conflictTables = [...new Set(row.conflictTables || [])]
+        .filter(table => table !== row.table)
+        .sort((a, b) => Number(a) - Number(b));
+    });
+  }
+
+  function reviewRowNote(row) {
+    let note = row.note;
+    if (row.conflict) {
+      const vehicle = formatVehicle(row.vehicle);
+      const tables = (row.conflictTables || []).map(table => table + '号表').join('、');
+      note = tables
+        ? '车号' + vehicle + '与' + tables + '重复，必须修改'
+        : '车号' + vehicle + '重复，必须修改';
+    }
+    if (!row.vehicle) note = note ? note + '；车号为空' : '车号为空';
+    return note;
+  }
+
+  function refreshRenderedReviewValidation() {
+    scopedReviewRows().forEach(row => {
+      const input = document.querySelector('[data-review-table="' + row.table + '"]');
+      if (!input) return;
+      const tableRow = input.closest('tr');
+      const note = tableRow && tableRow.querySelector('.vehicle-row-note');
+      const flagged = row.needsReview || row.conflict || !formatVehicle(row.vehicle);
+      if (tableRow) {
+        tableRow.classList.toggle('needs-review', flagged);
+        tableRow.classList.toggle('conflict', row.conflict);
+        tableRow.classList.toggle('hidden-row', reviewFilter === 'flagged' && !flagged);
+      }
+      if (note) {
+        note.textContent = reviewRowNote(row);
+        note.classList.toggle('alert', flagged);
+      }
+    });
   }
 
   function renderReviewRows() {
@@ -1531,8 +1580,7 @@
       const flagged = row.needsReview || row.conflict || !formatVehicle(row.vehicle);
       const hidden = reviewFilter === 'flagged' && !flagged;
       const classes = [flagged ? 'needs-review' : '', row.conflict ? 'conflict' : '', hidden ? 'hidden-row' : ''].filter(Boolean).join(' ');
-      let note = row.conflict ? '车号重复，必须修改' : row.note;
-      if (!row.vehicle) note = note ? note + '；车号为空' : '车号为空';
+      const note = reviewRowNote(row);
       return '<tr class="' + classes + '"><td><strong>' + row.table + '号表</strong></td><td><input data-review-table="' + row.table + '" value="' + escapeHtml(row.vehicle) + '" maxlength="3" inputmode="numeric" aria-label="' + row.table + '号表最终车号"></td><td><div class="vehicle-row-note ' + (flagged ? 'alert' : '') + '">' + escapeHtml(note) + '</div></td></tr>';
     }).join('');
   }
