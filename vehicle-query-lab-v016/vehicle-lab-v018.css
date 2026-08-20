@@ -1524,4 +1524,1691 @@ body.vehicle-lab-refined .input-row {
   gap: 9px;
 }
 
-body.vehicle-lab-
+body.vehicle-lab-refined button {
+  min-height: 42px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: var(--lab-foreground);
+  color: var(--lab-primary-foreground);
+  box-shadow: none;
+  font-size: 15px;
+  font-weight: 600;
+  transition: opacity .12s ease, transform .08s ease, background .12s ease;
+}
+
+body.vehicle-lab-refined button:active,
+body.vehicle-lab-refined button.pressed {
+  background: rgba(255, 255, 255, .82);
+  color: #000;
+  transform: scale(.985);
+}
+
+body.vehicle-lab-refined button:disabled {
+  opacity: .38;
+}
+
+body.vehicle-lab-refined .clear-btn,
+body.vehicle-lab-refined .import-btn,
+body.vehicle-lab-refined .vehicle-secondary-button,
+body.vehicle-lab-refined .vehicle-compact-button,
+body.vehicle-lab-refined .vehicle-review-photo-controls button {
+  border-color: var(--lab-border);
+  background: var(--lab-secondary);
+  color: var(--lab-foreground);
+}
+
+body.vehicle-lab-refined .vehicle-input-shell #tableInput {
+  padding-right: 116px;
+}
+
+body.vehicle-lab-refined .vehicle-inline-select {
+  top: 6px;
+  right: 6px;
+  width: 104px;
+  height: calc(100% - 12px);
+  border: 0;
+  border-radius: 8px;
+  background: var(--lab-accent);
+  color: var(--lab-primary);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+body.vehicle-lab-refined .vehicle-inline-select:disabled {
+  background: rgba(255, 255, 255, .055);
+  color: rgba(255, 255, 255, .34);
+}
+
+body.vehicle-lab-refined .vehicle-resolved-choices {
+  inset: 6px 116px 6px 6px;
+}
+
+body.vehicle-lab-refined .vehicle-resolved-button {
+  min-height: 0;
+  border-color: rgba(131, 195, 255, .28);
+  border-radius: 8px;
+  background: var(--lab-accent);
+  color: var(--lab-primary);
+  font-size: 13px;
+}
+
+body.vehicle-lab-refined .import-section {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-color: var(--lab-border);
+}
+
+body.vehicle-lab-refined .reset-link {
+  color: var(--lab-muted-foreground);
+}
+
+body.vehicle-lab-refined .install-banner {
+  border-color: var(--lab-border);
+  background: var(--lab-card);
+  color: var(--lab-muted-foreground);
+}
+
+body.vehicle-lab-refined .card-right {
+  color: var(--lab-foreground);
+}
+
+body.vehicle-lab-refined .result-page-head {
+  border-color: var(--lab-border);
+  background: var(--lab-background);
+}
+
+body.vehicle-lab-refined .time-info,
+body.vehicle-lab-refined .sr-item,
+body.vehicle-lab-refined .bd-train,
+body.vehicle-lab-refined .bd-col,
+body.vehicle-lab-refined .query-page-message {
+  border: 1px solid var(--lab-border);
+  border-radius: var(--lab-radius);
+  background: var(--lab-card-strong);
+}
+
+body.vehicle-lab-refined .vehicle-result-tag,
+body.vehicle-lab-refined .bd-vehicle,
+body.vehicle-lab-refined .linked-table-btn,
+body.vehicle-lab-refined .bd-table-btn {
+  background: var(--lab-accent);
+  color: var(--lab-primary);
+}
+
+body.vehicle-lab-refined .vehicle-result-tag.vehicle-missing-tag,
+body.vehicle-lab-refined .bd-vehicle.vehicle-missing-tag {
+  background: #252527;
+  color: #8e8e93;
+}
+
+body.vehicle-lab-refined .big-station,
+body.vehicle-lab-refined .between-sta,
+body.vehicle-lab-refined .bd-title,
+body.vehicle-lab-refined .bd-time,
+body.vehicle-lab-refined .bd-table,
+body.vehicle-lab-refined .sr-time,
+body.vehicle-lab-refined .station-result-title,
+body.vehicle-lab-refined .result-page-title,
+body.vehicle-lab-refined .time-val {
+  color: var(--lab-foreground);
+}
+
+body.vehicle-lab-refined .route-row,
+body.vehicle-lab-refined .time-row,
+body.vehicle-lab-refined .sr-route,
+body.vehicle-lab-refined .bd-sub,
+body.vehicle-lab-refined .bd-grid-label,
+body.vehicle-lab-refined .bd-sec-t {
+  color: var(--lab-muted-foreground);
+}
+
+body.vehicle-lab-refined .back-query-btn {
+  border-color: var(--lab-border);
+  background: var(--lab-secondary);
+  color: var(--lab-foreground);
+}
+
+body.vehicle-lab-refined.result-page > .vehicle-lab-brand {
+  display: none;
+}
+
+body.vehicle-lab-refined.result-page .card {
+  width: min(736px, 100%);
+  max-width: 736px;
+  padding-top: 0;
+}
+
+/* 导入、校对与车号管理 */
+body.vehicle-lab-refined.vehicle-manager-open {
+  display: block;
+  padding: calc(var(--safe-top) + 18px) 14px calc(var(--safe-bottom) + 28px);
+  background: var(--lab-background);
+}
+
+body.vehicle-lab-refined.vehicle-manager-open > .vehicle-lab-brand,
+body.vehicle-lab-refined.vehicle-manager-open > .card,
+body.vehicle-lab-refined.vehicle-manager-open > .install-banner {
+  display: none !important;
+}
+
+body.vehicle-lab-refined .vehicle-manager-page {
+  width: min(920px, 100%);
+  color: var(--lab-foreground);
+}
+
+body.vehicle-lab-refined .vehicle-manager-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+body.vehicle-lab-refined .vehicle-manager-brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+}
+
+body.vehicle-lab-refined .vehicle-manager-header h2,
+body.vehicle-lab-refined .vehicle-section-head h3,
+body.vehicle-lab-refined .vehicle-subpanel h4,
+body.vehicle-lab-refined .vehicle-photo-info strong,
+body.vehicle-lab-refined .vehicle-table td strong {
+  color: var(--lab-foreground);
+  font-weight: 600;
+}
+
+body.vehicle-lab-refined .vehicle-manager-header h2 {
+  font-size: 19px;
+}
+
+body.vehicle-lab-refined .vehicle-manager-header p {
+  color: var(--lab-muted-foreground);
+  font-size: 12px;
+}
+
+body.vehicle-lab-refined .vehicle-flow-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  margin-bottom: 16px;
+  padding: 4px;
+  border-radius: 12px;
+  background: var(--lab-muted);
+}
+
+body.vehicle-lab-refined .vehicle-flow-steps span {
+  display: grid;
+  min-height: 38px;
+  place-items: center;
+  border-radius: 9px;
+  color: var(--lab-muted-foreground);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+body.vehicle-lab-refined .vehicle-flow-steps span.active {
+  background: var(--lab-foreground);
+  color: var(--lab-primary-foreground);
+}
+
+body.vehicle-lab-refined .vehicle-stage,
+body.vehicle-lab-refined .vehicle-subpanel {
+  padding: 18px;
+  border: 1px solid var(--lab-border);
+  border-radius: 18px;
+  background: var(--lab-card);
+  box-shadow: none;
+}
+
+body.vehicle-lab-refined .vehicle-section-head {
+  margin-bottom: 16px;
+}
+
+body.vehicle-lab-refined .vehicle-section-head h3 {
+  font-size: 18px;
+}
+
+body.vehicle-lab-refined .vehicle-auto-date-panel {
+  border-color: var(--lab-border);
+  background: rgba(255, 255, 255, .025);
+}
+
+body.vehicle-lab-refined .vehicle-auto-date-panel span,
+body.vehicle-lab-refined .vehicle-auto-date-panel small {
+  color: var(--lab-muted-foreground);
+}
+
+body.vehicle-lab-refined .vehicle-auto-date-panel strong {
+  color: var(--lab-primary);
+}
+
+body.vehicle-lab-refined .vehicle-upload-label {
+  min-height: 108px;
+  border: 1px dashed rgba(131, 195, 255, .48);
+  border-radius: var(--lab-radius);
+  background: rgba(131, 195, 255, .055);
+  color: var(--lab-primary);
+  font-size: 15px;
+  font-weight: 650;
+}
+
+body.vehicle-lab-refined .vehicle-photo-grid {
+  gap: 12px;
+}
+
+body.vehicle-lab-refined .vehicle-photo-card,
+body.vehicle-lab-refined .vehicle-review-photo,
+body.vehicle-lab-refined .vehicle-table-wrap {
+  overflow: hidden;
+  border-color: var(--lab-border);
+  border-radius: var(--lab-radius);
+  background: rgba(255, 255, 255, .025);
+}
+
+body.vehicle-lab-refined .vehicle-photo-card img,
+body.vehicle-lab-refined .vehicle-review-photo img {
+  background: #141414;
+}
+
+body.vehicle-lab-refined .vehicle-review-toolbar {
+  margin-bottom: 14px;
+}
+
+body.vehicle-lab-refined .vehicle-schedule-review {
+  display: grid;
+  grid-template-columns: auto minmax(130px, 180px) minmax(0, 1fr);
+  align-items: center;
+  gap: 10px 12px;
+  margin: 0 0 14px;
+  padding: 12px;
+  border: 1px solid var(--lab-border);
+  border-radius: var(--lab-radius);
+  background: rgba(255, 255, 255, .025);
+}
+
+body.vehicle-lab-refined .vehicle-schedule-review label {
+  color: var(--lab-foreground);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+body.vehicle-lab-refined .vehicle-schedule-review select {
+  min-height: 38px;
+  padding: 7px 30px 7px 10px;
+  border-color: var(--lab-border-strong);
+  background-color: var(--lab-secondary);
+  color: var(--lab-foreground);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+body.vehicle-lab-refined .vehicle-schedule-evidence {
+  color: var(--lab-muted-foreground);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+body.vehicle-lab-refined .vehicle-schedule-evidence.alert {
+  color: #ffc078;
+}
+
+body.vehicle-lab-refined .vehicle-filter-group {
+  gap: 6px;
+}
+
+body.vehicle-lab-refined .vehicle-filter-group button {
+  min-height: 36px;
+  padding: 7px 11px;
+  border-color: var(--lab-border);
+  background: var(--lab-secondary);
+  color: var(--lab-foreground);
+}
+
+body.vehicle-lab-refined .vehicle-filter-group button.active {
+  background: var(--lab-foreground);
+  color: var(--lab-primary-foreground);
+}
+
+body.vehicle-lab-refined .vehicle-review-layout {
+  gap: 16px;
+}
+
+body.vehicle-lab-refined .vehicle-table th {
+  border-color: var(--lab-border);
+  background: #151516;
+  color: var(--lab-muted-foreground);
+}
+
+body.vehicle-lab-refined .vehicle-table td {
+  border-color: var(--lab-border);
+}
+
+body.vehicle-lab-refined .vehicle-table tr.needs-review {
+  background: var(--lab-accent);
+}
+
+body.vehicle-lab-refined .vehicle-table tr.conflict {
+  background: rgba(255, 92, 86, .12);
+}
+
+body.vehicle-lab-refined .vehicle-review-date-status.success,
+body.vehicle-lab-refined .vehicle-status.success {
+  color: var(--lab-success);
+}
+
+body.vehicle-lab-refined .vehicle-review-date-status.error,
+body.vehicle-lab-refined .vehicle-status.error,
+body.vehicle-lab-refined .error-msg {
+  color: var(--lab-danger);
+}
+
+body.vehicle-lab-refined .vehicle-row-note.alert {
+  color: #ffc078;
+}
+
+body.vehicle-lab-refined .vehicle-history-item {
+  border-left-color: var(--lab-primary);
+  background: rgba(255, 255, 255, .04);
+  color: rgba(255, 255, 255, .72);
+}
+
+body.vehicle-lab-refined .vehicle-conflict-box {
+  border-color: rgba(255, 192, 120, .5);
+  background: rgba(122, 68, 14, .22);
+  color: #ffc078;
+}
+
+body.vehicle-lab-refined .vehicle-danger-button {
+  border-color: rgba(255, 133, 119, .32);
+  background: rgba(255, 92, 86, .1);
+  color: var(--lab-danger);
+}
+
+@media (max-width: 600px) {
+  body.vehicle-lab-refined {
+    padding-inline: 12px;
+  }
+
+  body.vehicle-lab-refined .vehicle-lab-brand {
+    grid-template-columns: 42px minmax(0, 1fr);
+  }
+
+  body.vehicle-lab-refined .vehicle-lab-badge {
+    display: none;
+  }
+
+  body.vehicle-lab-refined .vehicle-query-hero {
+    min-height: 96px;
+  }
+
+  body.vehicle-lab-refined .vehicle-manager-launch {
+    min-width: 76px;
+    padding-inline: 10px;
+    font-size: 12px;
+  }
+
+  body.vehicle-lab-refined .card-left,
+  body.vehicle-lab-refined .vehicle-stage,
+  body.vehicle-lab-refined .vehicle-subpanel {
+    padding: 15px;
+    border-radius: 16px;
+  }
+
+  body.vehicle-lab-refined .vehicle-manager-header {
+    align-items: start;
+  }
+
+  body.vehicle-lab-refined .vehicle-manager-header .vehicle-brand-mark {
+    display: none;
+  }
+
+  body.vehicle-lab-refined .vehicle-flow-steps span {
+    min-height: 36px;
+    font-size: 12px;
+  }
+
+  body.vehicle-lab-refined .vehicle-photo-grid {
+    grid-template-columns: 1fr;
+  }
+
+  body.vehicle-lab-refined .vehicle-photo-card {
+    display: grid;
+    grid-template-columns: 104px minmax(0, 1fr);
+  }
+
+  body.vehicle-lab-refined .vehicle-photo-card img {
+    height: 118px;
+  }
+
+  body.vehicle-lab-refined #vehicleReviewBody tr:not(.hidden-row) {
+    border-color: rgba(131, 195, 255, .24);
+    background: var(--lab-accent);
+  }
+}
+
+@media (orientation: landscape) and (max-height: 600px) {
+  body.vehicle-lab-refined .vehicle-lab-brand {
+    margin-bottom: 10px;
+  }
+
+  body.vehicle-lab-refined .vehicle-query-hero {
+    min-height: 72px;
+    margin-bottom: 10px;
+  }
+
+  body.vehicle-lab-refined .clock {
+    font-size: 34px;
+    text-align: center;
+  }
+
+  body.vehicle-lab-refined .date-label {
+    text-align: center;
+  }
+
+  body.vehicle-lab-refined .card-right {
+    border-left-color: var(--lab-border);
+  }
+}
+
+/* v0.1.6：按实验原型重新组织界面层级，保留全部查询与车号管理能力。 */
+body.vehicle-lab-refined {
+  display: block;
+  padding: calc(var(--safe-top) + 28px) 22px calc(var(--safe-bottom) + 36px);
+  background: #000;
+}
+
+body.vehicle-lab-refined > .vehicle-lab-brand,
+body.vehicle-lab-refined > .vehicle-lab-tabs,
+body.vehicle-lab-refined > .card,
+body.vehicle-lab-refined > .install-banner {
+  width: min(430px, 100%);
+  max-width: 430px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+body.vehicle-lab-refined .vehicle-lab-brand {
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  margin-bottom: 15px;
+}
+
+body.vehicle-lab-refined .vehicle-brand-copy h1 {
+  font-size: 18px;
+  font-weight: 650;
+}
+
+body.vehicle-lab-refined .vehicle-brand-copy .subtitle {
+  color: #5f5f63;
+  font-size: 12px;
+}
+
+body.vehicle-lab-refined .vehicle-lab-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 5px 10px;
+  border: 0;
+  border-radius: 999px;
+  background: #0b2a44;
+  color: #66b6fa;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+body.vehicle-lab-refined .vehicle-lab-badge[hidden] {
+  display: none;
+}
+
+body.vehicle-lab-refined .vehicle-lab-tabs,
+body.vehicle-lab-refined .vehicle-flow-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  padding: 0;
+  background: transparent;
+}
+
+body.vehicle-lab-refined .vehicle-lab-tabs {
+  margin-bottom: 18px;
+}
+
+body.vehicle-lab-refined .vehicle-lab-tabs button,
+body.vehicle-lab-refined .vehicle-flow-steps button {
+  min-height: 38px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 9px;
+  background: #303030;
+  color: #f5f5f7;
+  box-shadow: none;
+  font-size: 13px;
+  font-weight: 550;
+}
+
+body.vehicle-lab-refined .vehicle-lab-tabs button.active,
+body.vehicle-lab-refined .vehicle-flow-steps button.active {
+  background: #f2f2f2;
+  color: #080808;
+}
+
+body.vehicle-lab-refined > .card {
+  overflow: visible;
+}
+
+body.vehicle-lab-refined .card-left {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+body.vehicle-lab-refined .vehicle-query-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-height: 208px;
+  margin: 0 0 16px;
+  padding: 8px 0 0;
+}
+
+body.vehicle-lab-refined .vehicle-query-center {
+  gap: 3px;
+}
+
+body.vehicle-lab-refined .vehicle-query-heading {
+  display: grid;
+  gap: 2px;
+  margin-bottom: 15px;
+  text-align: center;
+}
+
+body.vehicle-lab-refined .vehicle-query-heading strong {
+  color: #f5f5f7;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+body.vehicle-lab-refined .vehicle-query-heading span {
+  color: #5f5f63;
+  font-size: 12px;
+}
+
+body.vehicle-lab-refined .clock {
+  color: #65b7fb;
+  font-size: clamp(52px, 14vw, 66px);
+  font-weight: 300;
+}
+
+body.vehicle-lab-refined .date-label {
+  color: #66666a;
+  font-size: 13px;
+}
+
+body.vehicle-lab-refined .vehicle-manager-launch {
+  align-self: center;
+  margin-top: 52px;
+  min-width: 84px;
+  min-height: 38px;
+  background: #0b2a44;
+  color: #66b6fa;
+}
+
+body.vehicle-lab-refined .vehicle-control-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 20px;
+  border: 1px solid #242426;
+  border-radius: 18px;
+  background: #080808;
+}
+
+body.vehicle-lab-refined .vehicle-control-card .vehicle-date-panel {
+  order: 1;
+}
+
+body.vehicle-lab-refined .vehicle-control-card .mode-tabs {
+  order: 2;
+}
+
+body.vehicle-lab-refined .vehicle-control-card .view-mode-row {
+  order: 3;
+}
+
+body.vehicle-lab-refined .vehicle-control-card .station-row {
+  order: 4;
+}
+
+body.vehicle-lab-refined .vehicle-control-card .station-time-row {
+  order: 5;
+}
+
+body.vehicle-lab-refined .vehicle-control-card .input-label {
+  order: 6;
+}
+
+body.vehicle-lab-refined .vehicle-control-card .input-row {
+  order: 7;
+}
+
+body.vehicle-lab-refined .vehicle-control-card .query-page-message {
+  order: 8;
+}
+
+body.vehicle-lab-refined .vehicle-control-card .import-section {
+  order: 9;
+}
+
+body.vehicle-lab-refined .vehicle-date-panel {
+  margin-bottom: 16px;
+}
+
+body.vehicle-lab-refined .mode-tabs,
+body.vehicle-lab-refined .view-mode-row,
+body.vehicle-lab-refined .station-row,
+body.vehicle-lab-refined .station-time-row {
+  margin-bottom: 16px;
+}
+
+body.vehicle-lab-refined .view-mode-row {
+  align-items: center;
+}
+
+body.vehicle-lab-refined .station-time-row {
+  display: grid;
+  gap: 7px;
+}
+
+body.vehicle-lab-refined .station-time-controls {
+  margin-top: 0;
+}
+
+body.vehicle-lab-refined .input-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 9px;
+}
+
+body.vehicle-lab-refined .input-row .vehicle-input-shell,
+body.vehicle-lab-refined .input-row > button {
+  width: 100%;
+}
+
+body.vehicle-lab-refined .input-row > button {
+  min-height: 48px;
+}
+
+body.vehicle-lab-refined .input-row > button:not(.clear-btn) {
+  background: #f2f2f2;
+  color: #080808;
+}
+
+body.vehicle-lab-refined .input-row > .clear-btn {
+  background: #303030;
+  color: #f5f5f7;
+}
+
+body.vehicle-lab-refined .import-section {
+  margin-top: 20px;
+}
+
+body.vehicle-lab-refined .install-banner {
+  margin-top: 16px;
+  border-radius: 16px;
+}
+
+body.vehicle-lab-refined .card-right {
+  width: 100%;
+}
+
+body.vehicle-lab-refined.result-page > .vehicle-lab-tabs {
+  display: none;
+}
+
+body.vehicle-lab-refined.result-page .card {
+  width: min(430px, 100%);
+  max-width: 430px;
+}
+
+body.vehicle-lab-refined.vehicle-manager-open {
+  padding: calc(var(--safe-top) + 28px) 22px calc(var(--safe-bottom) + 36px);
+}
+
+body.vehicle-lab-refined .vehicle-manager-page {
+  width: min(430px, 100%);
+  max-width: 430px;
+}
+
+body.vehicle-lab-refined .vehicle-manager-header {
+  grid-template-columns: minmax(0, 1fr) auto;
+  margin-bottom: 15px;
+}
+
+body.vehicle-lab-refined .vehicle-manager-header .vehicle-manager-brand {
+  min-width: 0;
+}
+
+body.vehicle-lab-refined .vehicle-manager-header .vehicle-brand-mark {
+  display: grid;
+}
+
+body.vehicle-lab-refined .vehicle-manager-header h2 {
+  font-size: 18px;
+}
+
+body.vehicle-lab-refined .vehicle-manager-header p {
+  color: #5f5f63;
+}
+
+body.vehicle-lab-refined .vehicle-manager-header #vehicleManagerBack {
+  display: none;
+}
+
+body.vehicle-lab-refined .vehicle-flow-steps {
+  margin-bottom: 18px;
+}
+
+body.vehicle-lab-refined .vehicle-stage,
+body.vehicle-lab-refined .vehicle-subpanel {
+  padding: 20px;
+  border-color: #242426;
+  background: #080808;
+}
+
+body.vehicle-lab-refined .vehicle-section-head h3 {
+  font-size: 18px;
+}
+
+body.vehicle-lab-refined .vehicle-review-layout,
+body.vehicle-lab-refined .vehicle-manage-grid {
+  grid-template-columns: 1fr;
+}
+
+body.vehicle-lab-refined .vehicle-review-photo img {
+  max-height: 430px;
+}
+
+body.vehicle-lab-refined .vehicle-table-wrap {
+  max-height: none;
+}
+
+@media (max-width: 520px) {
+  body.vehicle-lab-refined,
+  body.vehicle-lab-refined.vehicle-manager-open {
+    padding-inline: 20px;
+  }
+
+  body.vehicle-lab-refined .vehicle-lab-brand,
+  body.vehicle-lab-refined .vehicle-manager-header {
+    grid-template-columns: 44px minmax(0, 1fr);
+  }
+
+  body.vehicle-lab-refined .vehicle-lab-brand .vehicle-lab-badge,
+  body.vehicle-lab-refined .vehicle-manager-header .vehicle-lab-badge {
+    grid-column: 2;
+    justify-self: start;
+    margin-top: 5px;
+  }
+
+  body.vehicle-lab-refined .vehicle-query-hero {
+    min-height: 192px;
+  }
+
+  body.vehicle-lab-refined .vehicle-control-card,
+  body.vehicle-lab-refined .vehicle-stage,
+  body.vehicle-lab-refined .vehicle-subpanel {
+    padding: 18px;
+  }
+}
+
+@media (max-width: 390px) {
+  body.vehicle-lab-refined,
+  body.vehicle-lab-refined.vehicle-manager-open {
+    padding-inline: 14px;
+  }
+
+  body.vehicle-lab-refined .vehicle-lab-tabs button,
+  body.vehicle-lab-refined .vehicle-flow-steps button {
+    padding-inline: 5px;
+    font-size: 12px;
+  }
+
+  body.vehicle-lab-refined .vehicle-control-card,
+  body.vehicle-lab-refined .vehicle-stage,
+  body.vehicle-lab-refined .vehicle-subpanel {
+    padding: 15px;
+  }
+}
+
+/* v0.1.8：稳定结构下的单一移动端布局。 */
+body.vehicle-lab-refined {
+  display: block;
+  min-height: 100vh;
+  margin: 0;
+  padding: calc(env(safe-area-inset-top, 0px) + 24px) 18px calc(env(safe-area-inset-bottom, 0px) + 32px);
+  background: #000;
+  color: #f5f5f7;
+}
+
+body.vehicle-lab-refined > .vehicle-lab-brand,
+body.vehicle-lab-refined > .vehicle-lab-tabs,
+body.vehicle-lab-refined > .card,
+body.vehicle-lab-refined > .install-banner {
+  width: min(100%, 430px);
+  max-width: 430px;
+  margin-right: auto;
+  margin-left: auto;
+}
+
+body.vehicle-lab-refined > .vehicle-lab-brand {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+body.vehicle-lab-refined > .vehicle-lab-brand .vehicle-brand-mark {
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  background: #75bcf7;
+  color: #07111a;
+}
+
+body.vehicle-lab-refined > .vehicle-lab-brand h1 {
+  font-size: 20px;
+}
+
+body.vehicle-lab-refined > .vehicle-lab-brand .subtitle {
+  color: #606064;
+  font-size: 12px;
+}
+
+body.vehicle-lab-refined > .vehicle-lab-tabs,
+body.vehicle-lab-refined .vehicle-flow-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  padding: 0;
+  background: transparent;
+}
+
+body.vehicle-lab-refined > .vehicle-lab-tabs {
+  display: none;
+}
+
+body.vehicle-lab-refined > .vehicle-lab-tabs button,
+body.vehicle-lab-refined .vehicle-flow-steps button {
+  width: 100%;
+  min-width: 0;
+  min-height: 36px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 10px;
+  background: #303031;
+  color: #f5f5f7;
+  box-shadow: none;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+body.vehicle-lab-refined > .vehicle-lab-tabs button.active,
+body.vehicle-lab-refined .vehicle-flow-steps button.active {
+  background: #f2f2f2;
+  color: #080808;
+}
+
+body.vehicle-lab-refined > .card {
+  overflow: visible;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+body.vehicle-lab-refined .card-left {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+body.vehicle-lab-refined .vehicle-query-hero {
+  order: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 82px;
+  align-items: center;
+  min-height: 112px;
+  margin: 0 0 8px;
+  padding: 0;
+}
+
+body.vehicle-lab-refined .vehicle-query-center {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding-left: 24px;
+  text-align: center;
+}
+
+body.vehicle-lab-refined .vehicle-query-heading {
+  display: grid;
+  gap: 3px;
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+body.vehicle-lab-refined .vehicle-query-heading strong {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  color: #f5f5f7;
+  font-size: 19px;
+  font-weight: 600;
+}
+
+body.vehicle-lab-refined .vehicle-query-heading strong svg {
+  width: 19px;
+  height: 19px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+body.vehicle-lab-refined .vehicle-query-heading span {
+  color: #626267;
+  font-size: 12px;
+}
+
+body.vehicle-lab-refined .clock {
+  margin: 0;
+  color: #67b9fd;
+  font-size: clamp(50px, 14vw, 60px);
+  font-weight: 250;
+  line-height: 1.05;
+  letter-spacing: -.035em;
+  white-space: nowrap;
+}
+
+body.vehicle-lab-refined .date-label {
+  margin: 3px 0 0;
+  color: #66666b;
+  font-size: 13px;
+}
+
+body.vehicle-lab-refined .vehicle-manager-launch {
+  position: static;
+  align-self: center;
+  width: 82px;
+  min-width: 82px;
+  min-height: 38px;
+  margin: 0;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 10px;
+  background: #0b2942;
+  color: #6bbafd;
+  box-shadow: none;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+body.vehicle-lab-refined .vehicle-manager-tools {
+  align-self: center;
+  display: flex;
+  width: 82px;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+}
+
+body.vehicle-lab-refined .vehicle-manager-tools .vehicle-lab-badge {
+  min-height: 0;
+  padding: 3px 5px;
+  font-size: 9px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+body.vehicle-lab-refined .vehicle-control-card {
+  order: 2;
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  padding: 16px;
+  border: 1px solid #252527;
+  border-radius: 18px;
+  background: #090909;
+}
+
+body.vehicle-lab-refined .vehicle-date-panel {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid #2a2a2d;
+  border-radius: 12px;
+  background: #111112;
+}
+
+body.vehicle-lab-refined .vehicle-date-row label,
+body.vehicle-lab-refined .view-mode-label,
+body.vehicle-lab-refined .station-time-label,
+body.vehicle-lab-refined .input-label {
+  color: #f3f3f5;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+body.vehicle-lab-refined .vehicle-date-select,
+body.vehicle-lab-refined .station-select,
+body.vehicle-lab-refined .station-time-select,
+body.vehicle-lab-refined .vehicle-inline-select {
+  padding-right: 32px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%239b9ba0' d='M1%201l5%205%205-5z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 11px center;
+  background-size: 9px 6px;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+body.vehicle-lab-refined .vehicle-date-select,
+body.vehicle-lab-refined .station-select,
+body.vehicle-lab-refined .station-time-select,
+body.vehicle-lab-refined .vehicle-input-shell #tableInput {
+  height: 30px;
+  min-height: 30px;
+  border: 1px solid #454548;
+  border-radius: 9px;
+  background-color: #343436;
+  color: #f5f5f7;
+  box-shadow: none;
+  font-size: 13px;
+}
+
+body.vehicle-lab-refined .vehicle-date-select {
+  padding: 0 32px 0 11px;
+  line-height: normal;
+}
+
+body.vehicle-lab-refined .mode-tabs {
+  margin: 0 0 12px;
+  padding: 3px;
+  border-radius: 12px;
+  background: #171718;
+}
+
+body.vehicle-lab-refined .mode-tab {
+  min-height: 34px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: #7e7e83;
+  box-shadow: none;
+  font-size: 14px;
+}
+
+body.vehicle-lab-refined .mode-tab.active,
+body.vehicle-lab-refined .view-mode-btn.active {
+  background: #f2f2f2;
+  color: #080808;
+}
+
+body.vehicle-lab-refined .view-mode-row {
+  grid-template-columns: 84px minmax(0, 1fr);
+  gap: 8px;
+  margin: 0 0 12px;
+}
+
+body.vehicle-lab-refined .view-mode-switch {
+  padding: 3px;
+  border-radius: 10px;
+  background: #171718;
+}
+
+body.vehicle-lab-refined .view-mode-btn {
+  min-height: 28px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #77777c;
+  box-shadow: none;
+  font-size: 12px;
+}
+
+body.vehicle-lab-refined .station-row,
+body.vehicle-lab-refined .station-time-row {
+  margin: 0 0 10px;
+}
+
+body.vehicle-lab-refined .station-select,
+body.vehicle-lab-refined .station-time-select {
+  padding: 0 32px 0 11px;
+}
+
+body.vehicle-lab-refined .station-time-row {
+  gap: 7px;
+}
+
+body.vehicle-lab-refined .station-time-controls {
+  grid-template-columns: minmax(0, 1fr) 14px minmax(0, 1fr);
+  gap: 7px;
+}
+
+body.vehicle-lab-refined .station-time-cycle-hint,
+body.vehicle-lab-refined .vehicle-data-status,
+body.vehicle-lab-refined .data-source {
+  color: #636368;
+  font-size: 11px;
+  line-height: 1.4;
+  text-align: center;
+}
+
+body.vehicle-lab-refined .input-label {
+  margin: 0 0 6px;
+}
+
+body.vehicle-lab-refined .input-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 5px;
+}
+
+body.vehicle-lab-refined .vehicle-input-shell #tableInput {
+  width: 100%;
+  padding: 0 100px 0 11px;
+  font-size: 13px;
+  font-weight: 550;
+}
+
+body.vehicle-lab-refined .vehicle-inline-select {
+  top: 3px;
+  right: 3px;
+  width: 91px;
+  height: 24px;
+  min-height: 24px;
+  padding: 0 20px 0 6px;
+  border: 0;
+  border-radius: 7px;
+  background-color: #424245;
+  background-position: right 7px center;
+  background-size: 8px 5px;
+  color: #d8d8dc;
+  font-size: 10px;
+  font-weight: 650;
+}
+
+body.vehicle-lab-refined .vehicle-resolved-choices {
+  inset: 3px 97px 3px 3px;
+}
+
+body.vehicle-lab-refined .input-row > button {
+  width: 100%;
+  height: 28px;
+  min-height: 28px;
+  padding: 0 11px;
+  border: 0;
+  border-radius: 8px;
+  box-shadow: none;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+body.vehicle-lab-refined .input-row > button:not(.clear-btn) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  background: #f2f2f2;
+  color: #080808;
+}
+
+body.vehicle-lab-refined .input-row > button:not(.clear-btn)::before {
+  content: "";
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 18 18' fill='none'%3E%3Ccircle cx='7.5' cy='7.5' r='5.5' stroke='%23080808' stroke-width='1.8'/%3E%3Cpath d='m12%2012%204%204' stroke='%23080808' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+body.vehicle-lab-refined .input-row > .clear-btn {
+  background: #303031;
+  color: #f5f5f7;
+}
+
+/* 管理页与查询页互斥显示，避免出现两套导航。 */
+body.vehicle-lab-refined.vehicle-manager-open > .vehicle-lab-brand,
+body.vehicle-lab-refined.vehicle-manager-open > .vehicle-lab-tabs,
+body.vehicle-lab-refined.vehicle-manager-open > .card,
+body.vehicle-lab-refined.vehicle-manager-open > .install-banner {
+  display: none !important;
+}
+
+body.vehicle-lab-refined.vehicle-manager-open {
+  padding: 0;
+}
+
+body.vehicle-lab-refined.vehicle-manager-open .vehicle-manager-page {
+  display: block;
+  width: min(100%, 430px);
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: calc(env(safe-area-inset-top, 0px) + 24px) 18px calc(env(safe-area-inset-bottom, 0px) + 32px);
+  background: #000;
+}
+
+body.vehicle-lab-refined .vehicle-manager-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+body.vehicle-lab-refined .vehicle-manager-brand {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+}
+
+body.vehicle-lab-refined .vehicle-manager-brand > div {
+  min-width: 0;
+}
+
+body.vehicle-lab-refined .vehicle-manager-header h2 {
+  margin: 0;
+  font-size: 18px;
+  white-space: nowrap;
+}
+
+body.vehicle-lab-refined .vehicle-manager-header p {
+  margin: 2px 0 0;
+  color: #606064;
+  font-size: 12px;
+}
+
+body.vehicle-lab-refined .vehicle-manager-header #vehicleManagerBack {
+  display: none;
+}
+
+body.vehicle-lab-refined .vehicle-flow-steps {
+  margin-bottom: 14px;
+}
+
+body.vehicle-lab-refined .vehicle-stage,
+body.vehicle-lab-refined .vehicle-subpanel {
+  width: 100%;
+  padding: 16px;
+  border: 1px solid #252527;
+  border-radius: 18px;
+  background: #090909;
+}
+
+body.vehicle-lab-refined .vehicle-section-head {
+  margin-bottom: 12px;
+}
+
+body.vehicle-lab-refined .vehicle-section-head h3 {
+  font-size: 18px;
+}
+
+body.vehicle-lab-refined .vehicle-review-layout,
+body.vehicle-lab-refined .vehicle-manage-grid {
+  grid-template-columns: 1fr;
+}
+
+body.vehicle-lab-refined .vehicle-review-photo img {
+  max-height: 390px;
+}
+
+body.vehicle-lab-refined .vehicle-table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+@media (max-width: 520px) {
+  body.vehicle-lab-refined,
+  body.vehicle-lab-refined.vehicle-manager-open {
+    padding-right: 14px;
+    padding-left: 14px;
+  }
+
+  body.vehicle-lab-refined > .vehicle-lab-brand {
+    grid-template-columns: 46px minmax(0, 1fr);
+  }
+
+  body.vehicle-lab-refined .vehicle-manager-header {
+    grid-template-columns: 1fr;
+  }
+
+  body.vehicle-lab-refined .vehicle-manager-header .vehicle-lab-badge {
+    justify-self: start;
+  }
+
+  body.vehicle-lab-refined .vehicle-review-toolbar {
+    display: grid;
+    grid-template-columns: 1fr;
+    justify-items: start;
+  }
+
+  body.vehicle-lab-refined .vehicle-schedule-review {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  body.vehicle-lab-refined .vehicle-schedule-evidence {
+    grid-column: 1 / -1;
+  }
+
+  body.vehicle-lab-refined #vehicleReviewStage .vehicle-table,
+  body.vehicle-lab-refined #vehicleReviewStage .vehicle-table tbody {
+    display: block;
+    width: 100%;
+  }
+
+  body.vehicle-lab-refined #vehicleReviewStage .vehicle-table thead {
+    display: none;
+  }
+
+  body.vehicle-lab-refined #vehicleReviewBody {
+    width: 100%;
+  }
+
+  body.vehicle-lab-refined .vehicle-query-hero {
+    grid-template-columns: minmax(0, 1fr) 76px;
+    min-height: 108px;
+  }
+
+  body.vehicle-lab-refined .vehicle-query-center {
+    padding-left: 20px;
+  }
+
+  body.vehicle-lab-refined .vehicle-manager-launch {
+    width: 76px;
+    min-width: 76px;
+    font-size: 11px;
+  }
+
+  body.vehicle-lab-refined .vehicle-manager-tools {
+    width: 76px;
+  }
+}
+
+/* v0.1.8 收尾：审核列表保持紧凑，结果页不再混入旧版白色标题栏。 */
+body.vehicle-lab-refined #vehicleReviewBody {
+  display: grid;
+  gap: 6px;
+  padding: 0;
+}
+
+body.vehicle-lab-refined #vehicleReviewBody tr:not(.hidden-row) {
+  display: grid;
+  grid-template-columns: 68px 78px minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+  min-height: 46px;
+  padding: 7px 9px;
+  border: 1px solid rgba(131, 195, 255, .24);
+  border-radius: 11px;
+  background: var(--lab-accent);
+}
+
+body.vehicle-lab-refined #vehicleReviewBody td,
+body.vehicle-lab-refined #vehicleReviewBody td:last-child {
+  grid-column: auto;
+  padding: 0;
+  border: 0;
+}
+
+body.vehicle-lab-refined #vehicleReviewBody input {
+  width: 72px;
+  height: 30px;
+  min-height: 30px;
+  padding: 0 6px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+body.vehicle-lab-refined #vehicleReviewBody .vehicle-row-note {
+  font-size: 10px;
+  line-height: 1.25;
+}
+
+body.vehicle-lab-refined.result-page {
+  padding-top: calc(env(safe-area-inset-top, 0px) + 14px);
+}
+
+body.vehicle-lab-refined.result-page .result-page-head {
+  position: static !important;
+  margin: 0 0 12px !important;
+  padding: 0 0 10px !important;
+  border-bottom: 1px solid #252527 !important;
+  background: #000 !important;
+}
+
+body.vehicle-lab-refined.result-page .back-query-btn {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid #454548;
+  border-radius: 9px;
+  background: #303031;
+  color: #f5f5f7;
+}
+
+body.vehicle-lab-refined.result-page .result-page-title {
+  color: #f5f5f7;
+}
+
+@media (max-width: 360px) {
+  body.vehicle-lab-refined > .vehicle-lab-brand {
+    grid-template-columns: 46px minmax(0, 1fr);
+  }
+
+  body.vehicle-lab-refined > .vehicle-lab-brand .vehicle-brand-copy h1 {
+    white-space: nowrap;
+  }
+
+  body.vehicle-lab-refined #vehicleReviewBody tr:not(.hidden-row) {
+    grid-template-columns: 60px 70px minmax(0, 1fr);
+    gap: 5px;
+    padding-inline: 7px;
+  }
+
+  body.vehicle-lab-refined #vehicleReviewBody input {
+    width: 66px;
+  }
+}
+
+/* 查询顺序与正式列车查询一致：先输入表号/车次/车号，再选择站点和时间。 */
+body.vehicle-lab-refined .vehicle-control-card .input-label { order: 4; }
+body.vehicle-lab-refined .vehicle-control-card .input-row { order: 5; margin-bottom: 10px; }
+body.vehicle-lab-refined .vehicle-control-card .station-row { order: 6; }
+body.vehicle-lab-refined .vehicle-control-card .station-time-row { order: 7; }
+
+/* iOS 会自动放大字号小于 16px 的表单控件；保持控件高度不变，只提高交互字号。 */
+@supports (-webkit-touch-callout: none) {
+  body.vehicle-lab-refined input:not([type="file"]),
+  body.vehicle-lab-refined select {
+    font-size: 16px !important;
+  }
+
+  body.vehicle-lab-refined .vehicle-input-shell #tableInput {
+    padding-right: 125px;
+  }
+
+  body.vehicle-lab-refined .vehicle-inline-select {
+    width: 116px;
+  }
+}
+
+/* 查询结果中的出入库记录按项目对齐，避免长句随屏幕宽度任意换行。 */
+body.vehicle-lab-refined .depot-info.vehicle-depot-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 12px;
+  color: #a9a9af;
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+body.vehicle-lab-refined .depot-info.vehicle-depot-grid::before {
+  content: "出入库时刻";
+  grid-column: 1 / -1;
+  margin-bottom: 1px;
+  color: #d7d7dc;
+  font-weight: 650;
+}
+
+body.vehicle-lab-refined .vehicle-depot-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 7px 8px;
+  border: 1px solid #29292c;
+  border-radius: 9px;
+  background: #111112;
+}
+
+body.vehicle-lab-refined .vehicle-depot-name {
+  overflow: hidden;
+  color: #c7c7cc;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body.vehicle-lab-refined .vehicle-depot-item time {
+  color: #f0f0f2;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+body.vehicle-lab-refined .vehicle-depot-action {
+  color: #83c3ff;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+@media (max-width: 350px) {
+  body.vehicle-lab-refined .depot-info.vehicle-depot-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 区间运行的起终点按内容宽度居中排列，不再被 flex: 1 推到屏幕两端。 */
+body.vehicle-lab-refined .between-wrap {
+  justify-content: center;
+  gap: 14px;
+}
+
+body.vehicle-lab-refined .between-sta,
+body.vehicle-lab-refined .between-sta.right {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: calc(50% - 30px);
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+body.vehicle-lab-refined .between-icon {
+  flex: 0 0 auto;
+  padding: 0;
+}
+
+/* 手机横屏：恢复与正式列车查询一致的左右分栏，避免被竖屏 430px 宽度挤成窄条。 */
+@media (orientation: landscape) and (max-height: 600px) {
+  body.vehicle-lab-refined {
+    padding: 10px max(14px, env(safe-area-inset-right, 0px)) 24px max(14px, env(safe-area-inset-left, 0px));
+  }
+
+  body.vehicle-lab-refined > .vehicle-lab-brand,
+  body.vehicle-lab-refined > .vehicle-lab-tabs,
+  body.vehicle-lab-refined > .card,
+  body.vehicle-lab-refined > .install-banner {
+    width: min(100%, 1100px);
+    max-width: 1100px;
+  }
+
+  body.vehicle-lab-refined > .vehicle-lab-brand {
+    margin-bottom: 8px;
+  }
+
+  body.vehicle-lab-refined > .card,
+  body.vehicle-lab-refined.result-page > .card {
+    display: flex;
+    width: min(100%, 1100px);
+    max-width: 1100px;
+    align-items: flex-start;
+    gap: 18px;
+  }
+
+  body.vehicle-lab-refined .card-left {
+    width: 42%;
+    min-width: 0;
+    flex: 0 0 42%;
+  }
+
+  body.vehicle-lab-refined .card-right {
+    display: block;
+    width: 58%;
+    min-width: 0;
+    min-height: 220px;
+    padding-left: 18px;
+    border-left: 1px solid #252527;
+  }
+
+  body.vehicle-lab-refined .vehicle-query-hero {
+    min-height: 92px;
+    margin-bottom: 8px;
+  }
+
+  body.vehicle-lab-refined .vehicle-query-heading {
+    margin-bottom: 6px;
+  }
+
+  body.vehicle-lab-refined .clock {
+    font-size: clamp(34px, 5vw, 48px);
+  }
+
+  body.vehicle-lab-refined .vehicle-control-card {
+    padding: 14px;
+  }
+
+  body.vehicle-lab-refined.vehicle-manager-open {
+    padding: 0;
+  }
+
+  body.vehicle-lab-refined.vehicle-manager-open .vehicle-manager-page {
+    width: min(100%, 1100px);
+    max-width: 1100px;
+    padding: 12px max(18px, env(safe-area-inset-right, 0px)) 24px max(18px, env(safe-area-inset-left, 0px));
+  }
+
+  body.vehicle-lab-refined .vehicle-review-layout,
+  body.vehicle-lab-refined .vehicle-manage-grid {
+    grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr);
+    align-items: start;
+  }
+
+  body.vehicle-lab-refined .vehicle-review-photo img {
+    max-height: calc(100vh - 180px);
+  }
+}
+
+/* 必须放在最终精修规则之后，保持查询历史与导入按钮之间的紧凑间距。 */
+body.vehicle-lab-refined .vehicle-manager-tools {
+  gap: 6px;
+}
