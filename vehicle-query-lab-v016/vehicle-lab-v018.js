@@ -1313,9 +1313,12 @@
   }
 
   function recognizedScheduleType(response) {
-    const value = String(response.schedule_type || response.plan_type || response.timetable_type || '').toLowerCase();
-    if (/weekend|double|双休|节假|sx/.test(value)) return 'weekend';
-    if (/weekday|workday|平日|工作日|pr/.test(value)) return 'weekday';
+    const value = String(response.schedule_type || response.plan_type || response.timetable_type || '')
+      .trim()
+      .toLowerCase()
+      .replace(/[\s_-]+/g, '');
+    if (['weekend', 'doubleholiday', 'doubleoff', '双休', '双休日', '节假日'].includes(value)) return 'weekend';
+    if (['weekday', 'workday', '平日', '工作日'].includes(value)) return 'weekday';
     return '';
   }
 
@@ -1431,15 +1434,59 @@
 
   function normalizedRow(raw, pageType) {
     const table = formatTable(raw.table_no || raw.table || raw.tableNumber);
-    const changed = formatVehicle(raw.changed_vehicle_number || raw.changed_train_number || raw.replacement_vehicle_number);
+    const reportedChanged = formatVehicle(raw.changed_vehicle_number || raw.changed_train_number || raw.replacement_vehicle_number);
     const original = formatVehicle(raw.original_vehicle_number || raw.vehicle_number || raw.train_number);
-    const effective = formatVehicle(raw.effective_vehicle_number || changed || original);
-    const reasons = Array.isArray(raw.review_reasons) ? raw.review_reasons : [];
-    const modified = Boolean(raw.vehicle_modified || raw.train_modified || changed);
+    const reportedEffective = formatVehicle(raw.effective_vehicle_number || reportedChanged || original);
+    const reportedDifferent = Boolean(reportedEffective && original && reportedEffective !== original);
+    const claimsModification = Boolean(raw.vehicle_modified || raw.train_modified || reportedChanged || reportedDifferent);
+    const sourceText = String(raw.change_source_zone || raw.source_zone || raw.vehicle_change_source || '').toLowerCase().replace(/[\s_-]+/g, '');
+    const noneSources = new Set(['', 'none', 'nochange', '无', '未变更']);
+    const mainSources = new Set([
+      'main', 'primary', 'formal', 'target', 'maincell', 'primarycell', 'formalcell', 'targetcell',
+      '正式', '正式栏', '正式格', '主表', '目标格', '目标区', '目标区内'
+    ]);
+    const otherSources = new Set([
+      'other', 'secondary', 'reserve', 'inspection', 'note', 'othercell', 'secondarycell',
+      '预备', '预备栏', '周检', '周检栏', '备注', '备注栏', '其他', '其他栏位', '非目标区'
+    ]);
+    const sourceZone = noneSources.has(sourceText)
+      ? 'none'
+      : mainSources.has(sourceText)
+        ? 'main'
+        : otherSources.has(sourceText)
+          ? 'other'
+          : 'uncertain';
+    const changeInPrimaryCell = raw.change_in_primary_vehicle_cell === true
+      || raw.modification_in_target_cell === true
+      || raw.change_inside_target_cell === true;
+    const trustedModification = claimsModification && sourceZone === 'main' && changeInPrimaryCell;
+    const ignoredChanged = formatVehicle(raw.ignored_changed_vehicle_number)
+      || (!trustedModification ? (reportedChanged || (reportedDifferent ? reportedEffective : '')) : '');
+    const changed = trustedModification ? (reportedChanged || (reportedDifferent ? reportedEffective : '')) : '';
+    const effective = trustedModification
+      ? (reportedEffective || changed || original)
+      : claimsModification
+        ? original
+        : (reportedEffective || original);
+    const reasons = Array.isArray(raw.review_reasons) ? raw.review_reasons.slice() : [];
+    const modified = trustedModification;
     const confidence = Number(raw.confidence == null ? 1 : raw.confidence);
     const noteParts = [];
     if (changed) noteParts.push('识别到变更车号' + changed);
-    if (modified) noteParts.push('存在划改或重写');
+    if (modified) noteParts.push('存在正式变更车号填写或手写划改');
+    if (claimsModification && !trustedModification) {
+      if (sourceZone === 'other' && !changeInPrimaryCell) {
+        noteParts.push(ignoredChanged
+          ? '同行其他栏位的疑似车号' + ignoredChanged + '已忽略'
+          : '同行其他栏位的划改已忽略');
+      } else if (!reasons.some(reason => /位置无法确认|已保留正式车号/.test(String(reason)))) {
+        reasons.push(ignoredChanged
+          ? '疑似变更车号' + ignoredChanged + '的位置无法确认，已保留正式车号'
+          : '划改位置无法确认，已保留正式车号');
+      }
+    } else if (ignoredChanged) {
+      noteParts.push('同行其他栏位的疑似车号' + ignoredChanged + '已忽略');
+    }
     if (raw.ambiguity) noteParts.push('AI认为不确定');
     if (confidence < 0.88) noteParts.push('置信度较低');
     reasons.forEach(reason => noteParts.push(String(reason)));
