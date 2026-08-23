@@ -4,6 +4,9 @@
   const STORAGE_KEY = 'vehicle_query_lab_v1';
   const QUERY_HISTORY_KEY = 'vehicle_query_history_v1';
   const QUERY_HISTORY_LIMIT = 10;
+  const HANDWRITING_MEMORY_KEY = 'vehicle_handwriting_examples_v1';
+  const HANDWRITING_MEMORY_LIMIT = 12;
+  const HANDWRITING_REQUEST_LIMIT = 4;
   const RETENTION_DAYS = 7;
   const SERVICE_CUTOFF_HOUR = 3;
   const PAGE_TYPES = [
@@ -43,6 +46,7 @@
   let adjustmentConflict = null;
   let decorateQueued = false;
   let queryHistory = loadQueryHistory();
+  let handwritingExamples = loadHandwritingExamples();
   let historyScrollTop = 0;
 
   function $(id) { return document.getElementById(id); }
@@ -93,6 +97,15 @@
     const number = Number(raw);
     if (number < 0 || number > 999) return '';
     return String(number).padStart(3, '0');
+  }
+
+  function normalizeCellBbox(value) {
+    if (!Array.isArray(value) || value.length !== 4) return [];
+    const box = value.map(Number);
+    if (box.some(number => !Number.isFinite(number))) return [];
+    const normalized = box.map(number => Math.max(0, Math.min(1000, Math.round(number))));
+    if (normalized[2] - normalized[0] < 5 || normalized[3] - normalized[1] < 5) return [];
+    return normalized;
   }
 
   function localDateString(date) {
@@ -156,6 +169,66 @@
     } catch (_) {
       return [];
     }
+  }
+
+  function loadHandwritingExamples() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(HANDWRITING_MEMORY_KEY) || '[]');
+      if (!Array.isArray(parsed)) return [];
+      return parsed.filter(example =>
+        example && /^data:image\/jpeg;base64,/.test(String(example.image || '')) &&
+        /^\d{3}$/.test(String(example.confirmed_value || ''))
+      ).slice(0, HANDWRITING_MEMORY_LIMIT);
+    } catch (_) {
+      return [];
+    }
+  }
+
+  function saveHandwritingExamples(examples) {
+    const combined = examples.concat(handwritingExamples);
+    const seen = new Set();
+    handwritingExamples = combined.filter(example => {
+      const key = String(example.confirmed_value || '') + ':' + String(example.image || '').slice(-96);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    }).slice(0, HANDWRITING_MEMORY_LIMIT);
+    while (handwritingExamples.length) {
+      try {
+        localStorage.setItem(HANDWRITING_MEMORY_KEY, JSON.stringify(handwritingExamples));
+        break;
+      } catch (_) {
+        handwritingExamples.pop();
+      }
+    }
+    refreshHandwritingMemoryStatus();
+  }
+
+  function clearHandwritingExamples() {
+    if (!handwritingExamples.length) return;
+    if (!window.confirm('清除本机保存的全部局部笔迹样本？已导入的车号数据不会受到影响。')) return;
+    handwritingExamples = [];
+    localStorage.removeItem(HANDWRITING_MEMORY_KEY);
+    refreshHandwritingMemoryStatus();
+  }
+
+  function requestHandwritingExamples() {
+    return handwritingExamples.slice(0, HANDWRITING_REQUEST_LIMIT).map(example => ({
+      image: example.image,
+      confirmed_value: example.confirmed_value,
+      original_value: example.original_value || '',
+      model_value: example.model_value || ''
+    }));
+  }
+
+  function refreshHandwritingMemoryStatus() {
+    const summary = $('vehicleHandwritingMemorySummary');
+    const clear = $('vehicleClearHandwritingMemory');
+    if (!summary || !clear) return;
+    summary.textContent = handwritingExamples.length
+      ? '本机已保存' + handwritingExamples.length + '条人工确认的局部笔迹样本；识别时最多引用最近' + HANDWRITING_REQUEST_LIMIT + '条。'
+      : '本机暂无人工确认的笔迹样本。只保存变更车号格小图，不保存整张照片。';
+    clear.hidden = !handwritingExamples.length;
   }
 
   function saveQueryHistory() {
@@ -555,6 +628,7 @@
         '<p class="vehicle-status" id="vehicleRecognitionStatus">请选择1至3张照片。</p>' +
         '<div class="vehicle-actions"><button type="button" id="vehicleRecognizeButton" disabled>上传并开始识别</button><button type="button" class="vehicle-secondary-button" id="vehicleManualImportButton">手工建立对应关系</button></div>' +
         '<p class="vehicle-ai-quota" id="vehicleAiQuota" hidden></p>' +
+        '<div class="vehicle-handwriting-memory"><span id="vehicleHandwritingMemorySummary"></span><button type="button" class="vehicle-link-button" id="vehicleClearHandwritingMemory" hidden>清除笔迹样本</button></div>' +
       '</div>' +
 
       '<div class="vehicle-stage" id="vehicleReviewStage">' +
@@ -774,6 +848,7 @@
     $('vehiclePhotoInput').addEventListener('change', handlePhotoSelection);
     $('vehicleRecognizeButton').addEventListener('click', recognizePhotos);
     $('vehicleManualImportButton').addEventListener('click', beginManualReview);
+    $('vehicleClearHandwritingMemory').addEventListener('click', clearHandwritingExamples);
     $('vehicleReviewBack').addEventListener('click', () => showManagerStage('upload'));
     $('vehiclePreviousPhoto').addEventListener('click', () => showReviewPhoto(reviewPhotoIndex - 1));
     $('vehicleNextPhoto').addEventListener('click', () => showReviewPhoto(reviewPhotoIndex + 1));
@@ -788,7 +863,7 @@
       const row = reviewRows.find(item => item.table === input.dataset.reviewTable);
       if (!row) return;
       row.vehicle = input.value.replace(/\D/g, '').slice(0, 3);
-      row.manuallyEdited = true;
+      row.manuallyEdited = formatVehicle(row.vehicle) !== formatVehicle(row.modelVehicle);
       revalidateReviewRows();
       refreshRenderedReviewValidation();
       renderReviewSummary();
@@ -1135,6 +1210,7 @@
     if (name === 'upload') {
       setRecognitionStatus(photos.length ? '已选择' + photos.length + '张照片。' : '请选择1至3张照片。');
       loadVehicleQuota();
+      refreshHandwritingMemoryStatus();
     }
     if (name === 'manage') renderManageStage();
     window.scrollTo(0, 0);
@@ -1275,6 +1351,7 @@
     const request = {
       task: 'daily_vehicle_mapping',
       images,
+      handwriting_examples: requestHandwritingExamples(),
       provider: 'doubao',
       import_mode: partialUpdate ? 'partial_page_update' : 'full_day_import',
       existing_service_dates: Object.keys(store.days || {}),
@@ -1429,10 +1506,17 @@
     photo.recognizedDate = recognizedDate;
     photo.planCode = planCode;
     photo.result = response;
-    return { rawRows, pageType: detectedPageType, date: recognizedDate, planCode, explicitScheduleType };
+    return {
+      rawRows,
+      pageType: detectedPageType,
+      date: recognizedDate,
+      planCode,
+      explicitScheduleType,
+      imageIndex: photo.index + 1
+    };
   }
 
-  function normalizedRow(raw, pageType) {
+  function normalizedRow(raw, pageType, imageIndex) {
     const table = formatTable(raw.table_no || raw.table || raw.tableNumber);
     const reportedChanged = formatVehicle(raw.changed_vehicle_number || raw.changed_train_number || raw.replacement_vehicle_number);
     const original = formatVehicle(raw.original_vehicle_number || raw.vehicle_number || raw.train_number);
@@ -1471,6 +1555,7 @@
     const reasons = Array.isArray(raw.review_reasons) ? raw.review_reasons.slice() : [];
     const modified = trustedModification;
     const confidence = Number(raw.confidence == null ? 1 : raw.confidence);
+    const changeCellBbox = normalizeCellBbox(raw.change_cell_bbox || raw.target_cell_bbox || raw.bbox);
     const noteParts = [];
     if (changed) noteParts.push('识别到变更车号' + changed);
     if (modified) noteParts.push('存在正式变更车号填写或手写划改');
@@ -1494,9 +1579,14 @@
     return {
       table,
       vehicle: effective,
+      modelVehicle: effective,
       originalVehicle: original,
       changedVehicle: changed,
+      modelChangedVehicle: reportedChanged,
       pageType,
+      imageIndex: Number(imageIndex) || 0,
+      changeCellBbox,
+      modelModified: modified,
       confidence,
       needsReview: !effective || modified || Boolean(raw.ambiguity) || confidence < 0.88 || reasons.length > 0,
       conflict: false,
@@ -1510,9 +1600,14 @@
     return {
       table,
       vehicle: '',
+      modelVehicle: '',
       originalVehicle: '',
       changedVehicle: '',
+      modelChangedVehicle: '',
       pageType: page ? page.id : '',
+      imageIndex: 0,
+      changeCellBbox: [],
+      modelModified: false,
       confidence: 0,
       needsReview: true,
       conflict: false,
@@ -1529,7 +1624,7 @@
         // 每张照片只能贡献本车辆段主表范围内的数据，避免把“预备”栏的
         // 01、13、14……误当成另一车辆段的正式表号。
         if (table && tableBelongsToPageType(table, result.pageType)) {
-          rawByTable.set(table, { raw, pageType: result.pageType });
+          rawByTable.set(table, { raw, pageType: result.pageType, imageIndex: result.imageIndex });
         }
       });
     });
@@ -1543,7 +1638,7 @@
     return expectedTables.map(table => {
       const source = rawByTable.get(table);
       const row = source
-        ? normalizedRow(source.raw, source.pageType || pageTypeForTable(table).id)
+        ? normalizedRow(source.raw, source.pageType || pageTypeForTable(table).id, source.imageIndex)
         : blankReviewRow(table, 'AI未返回该表号');
       const edited = preserved.get(table);
       if (edited) {
@@ -1907,7 +2002,79 @@
     $('vehicleReviewPhoto').alt = '第' + (reviewPhotoIndex + 1) + '张运行计划原照片';
   }
 
-  function saveReviewedImport() {
+  function loadPhotoImage(photo) {
+    return new Promise((resolve, reject) => {
+      if (!photo || !photo.url) return reject(new Error('原照片已释放'));
+      const image = new Image();
+      image.onload = () => resolve(image);
+      image.onerror = () => reject(new Error('无法读取原照片'));
+      image.src = photo.url;
+    });
+  }
+
+  async function cropHandwritingCell(photo, bbox) {
+    const box = normalizeCellBbox(bbox);
+    if (!box.length) return '';
+    const image = await loadPhotoImage(photo);
+    const rawX1 = image.naturalWidth * box[0] / 1000;
+    const rawY1 = image.naturalHeight * box[1] / 1000;
+    const rawX2 = image.naturalWidth * box[2] / 1000;
+    const rawY2 = image.naturalHeight * box[3] / 1000;
+    const rawWidth = rawX2 - rawX1;
+    const rawHeight = rawY2 - rawY1;
+    const marginX = Math.max(3, rawWidth * 0.08);
+    const marginY = Math.max(3, rawHeight * 0.12);
+    const sx = Math.max(0, rawX1 - marginX);
+    const sy = Math.max(0, rawY1 - marginY);
+    const sw = Math.min(image.naturalWidth - sx, rawWidth + marginX * 2);
+    const sh = Math.min(image.naturalHeight - sy, rawHeight + marginY * 2);
+    if (sw < 8 || sh < 8) return '';
+    const scale = Math.max(1, Math.min(3, 420 / sw, 220 / sh));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(sw * scale));
+    canvas.height = Math.max(1, Math.round(sh * scale));
+    const context = canvas.getContext('2d');
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = 'high';
+    context.drawImage(image, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+    let quality = 0.88;
+    let data = canvas.toDataURL('image/jpeg', quality);
+    while (data.length > 220000 && quality > 0.64) {
+      quality -= 0.06;
+      data = canvas.toDataURL('image/jpeg', quality);
+    }
+    return data.length <= 220000 ? data : '';
+  }
+
+  async function rememberReviewedHandwriting(rowsToSave) {
+    if (reviewSource !== 'photo' || !photos.length) return 0;
+    const candidates = rowsToSave.filter(row => {
+      const confirmed = formatVehicle(row.vehicle);
+      const modelValue = formatVehicle(row.modelVehicle);
+      return row.manuallyEdited && confirmed && confirmed !== modelValue &&
+        row.modelModified && normalizeCellBbox(row.changeCellBbox).length && row.imageIndex > 0;
+    });
+    const learned = [];
+    for (const row of candidates.slice(0, 8)) {
+      try {
+        const image = await cropHandwritingCell(photos[row.imageIndex - 1], row.changeCellBbox);
+        if (!image) continue;
+        learned.push({
+          image,
+          confirmed_value: formatVehicle(row.vehicle),
+          original_value: formatVehicle(row.originalVehicle),
+          model_value: formatVehicle(row.modelChangedVehicle),
+          created_at: new Date().toISOString()
+        });
+      } catch (_) {
+        // 笔迹样本保存失败不能阻止当天车号数据导入。
+      }
+    }
+    if (learned.length) saveHandwritingExamples(learned);
+    return learned.length;
+  }
+
+  async function saveReviewedImport() {
     setReviewStatus('');
     const scheduleType = $('vehicleReviewScheduleType').value;
     if (!SCHEDULE_TYPES[scheduleType]) return setReviewStatus('请先人工确认本次是平日图还是双休日图。', 'error');
@@ -1972,11 +2139,12 @@
     }
     const errors = validateDayTimeline(candidate);
     if (errors.length) return setReviewStatus('不能保存：' + errors.join('；'), 'error');
+    const learnedCount = await rememberReviewedHandwriting(rowsToSave);
     store.days[date] = candidate;
     saveStore();
     selectedServiceDate = date;
     revokePhotos();
-    setReviewStatus('已保存。', 'success');
+    setReviewStatus('已保存。' + (learnedCount ? '同时在本机记录了' + learnedCount + '条局部笔迹样本。' : ''), 'success');
     refreshDateOptions();
     syncQueryScheduleType(date);
     refreshVehicleOptions();
