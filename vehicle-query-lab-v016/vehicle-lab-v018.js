@@ -7,6 +7,8 @@
   const HANDWRITING_MEMORY_KEY = 'vehicle_handwriting_examples_v1';
   const HANDWRITING_MEMORY_LIMIT = 12;
   const HANDWRITING_REQUEST_LIMIT = 4;
+  const COMPOSITE_MIN_ASPECT_RATIO = 1.15;
+  const COMPOSITE_PAGE_COUNT = 3;
   const RETENTION_DAYS = 7;
   const SERVICE_CUTOFF_HOUR = 3;
   const PAGE_TYPES = [
@@ -620,7 +622,7 @@
       '<div class="vehicle-flow-steps" aria-label="车号实验功能"><button type="button" data-vehicle-nav="upload">上传照片</button><button type="button" data-vehicle-nav="review">审核校对</button><button type="button" data-vehicle-nav="query">列车查询</button></div>' +
 
       '<div class="vehicle-stage" id="vehicleUploadStage">' +
-        '<div class="vehicle-section-head"><div><h3>上传运行计划</h3><p class="vehicle-muted">可选择1至3张：只覆盖所选照片对应的表号范围；三张齐全时完整导入。上传顺序不限。</p></div></div>' +
+        '<div class="vehicle-section-head"><div><h3>上传运行计划</h3><p class="vehicle-muted">可选择1至3张：只覆盖所选照片对应的表号范围；三张齐全时完整导入。也支持一张横向照片同时拍入三张运行计划，系统会自动拆分识别。</p></div></div>' +
         '<div class="vehicle-auto-date-panel"><span>运行日期</span><strong>由照片自动识别</strong><small>所选照片日期必须一致；两张可作为同一批次整体更新，避免跨范围换车被误判为冲突。</small></div>' +
         '<label class="vehicle-upload-label">选择或拍摄1至3张照片<input id="vehiclePhotoInput" type="file" accept="image/jpeg,image/png,image/webp" multiple></label>' +
         '<div class="vehicle-photo-grid" id="vehiclePhotoGrid"></div>' +
@@ -1233,6 +1235,7 @@
     renderPhotoCards();
     $('vehicleRecognizeButton').disabled = !isSupportedPhotoCount(photos.length);
     if (files.length === 3) setRecognitionStatus('已选择3张照片，将完整识别并导入当天数据。', 'success');
+    else if (files.length === 1) setRecognitionStatus('已选择1张照片；横向三表合拍图会自动拆分。若横图实际只有一张表，可在照片下方手动选择表号范围以按单张识别。', 'success');
     else if (files.length) setRecognitionStatus('已选择' + files.length + '张照片，将作为同一批次整体更新对应表号范围。', 'success');
     else setRecognitionStatus('请选择1至3张照片。', 'error');
   }
@@ -1244,7 +1247,7 @@
       const metadata = photo.recognizedDate
         ? '日期：' + formatDateLabel(photo.recognizedDate) + (photo.planCode ? ' · 标题：' + escapeHtml(photo.planCode) : '')
         : '等待识别日期与标题代号';
-      return '<article class="vehicle-photo-card"><img src="' + photo.url + '" alt="第' + (index + 1) + '张运行计划"><div class="vehicle-photo-info"><strong>第' + (index + 1) + '张' + (detected ? ' · 已识别' + detected.label : '') + '</strong><select class="vehicle-photo-page-select" data-photo-index="' + index + '">' + options + '</select><span class="vehicle-muted">' + metadata + '</span></div></article>';
+      return '<article class="vehicle-photo-card"><img src="' + photo.url + '" alt="第' + (index + 1) + '张运行计划"><div class="vehicle-photo-info"><strong>第' + (index + 1) + '张' + (photo.compositeCrop ? ' · 合拍裁片' : '') + (detected ? ' · 已识别' + detected.label : '') + '</strong><select class="vehicle-photo-page-select" data-photo-index="' + index + '">' + options + '</select><span class="vehicle-muted">' + metadata + '</span></div></article>';
     }).join('');
   }
 
@@ -1323,6 +1326,95 @@
       };
       image.src = url;
     });
+  }
+
+  function loadPhotoFileImage(file) {
+    return new Promise((resolve, reject) => {
+      const image = new Image();
+      const url = URL.createObjectURL(file);
+      image.onload = () => resolve({ image, url });
+      image.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error('照片读取失败'));
+      };
+      image.src = url;
+    });
+  }
+
+  function canvasJpegBlob(canvas, quality = 0.92) {
+    return new Promise((resolve, reject) => {
+      canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('合拍照片裁切失败')), 'image/jpeg', quality);
+    });
+  }
+
+  function compositeCropRegions(width, height) {
+    const segment = width / COMPOSITE_PAGE_COUNT;
+    const overlap = segment * 0.075;
+    const top = Math.max(0, Math.round(height * 0.12));
+    return Array.from({ length: COMPOSITE_PAGE_COUNT }, (_, index) => {
+      const left = Math.max(0, Math.floor(index * segment - (index ? overlap : 0)));
+      const right = Math.min(width, Math.ceil((index + 1) * segment + (index < COMPOSITE_PAGE_COUNT - 1 ? overlap : 0)));
+      return { left, top, width: right - left, height: height - top };
+    });
+  }
+
+  async function splitCompositePhoto(photo) {
+    const loaded = await loadPhotoFileImage(photo.file);
+    const image = loaded.image;
+    try {
+      if (image.naturalWidth / Math.max(1, image.naturalHeight) < COMPOSITE_MIN_ASPECT_RATIO) return [];
+      const regions = compositeCropRegions(image.naturalWidth, image.naturalHeight);
+      const baseName = String(photo.file.name || '运行计划').replace(/\.[^.]+$/, '');
+      const crops = [];
+      for (let index = 0; index < regions.length; index += 1) {
+        const region = regions[index];
+        const scale = Math.max(1, Math.min(3, 2200 / region.height, 1400 / region.width));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(region.width * scale));
+        canvas.height = Math.max(1, Math.round(region.height * scale));
+        const context = canvas.getContext('2d');
+        context.imageSmoothingEnabled = true;
+        context.imageSmoothingQuality = 'high';
+        context.drawImage(
+          image,
+          region.left,
+          region.top,
+          region.width,
+          region.height,
+          0,
+          0,
+          canvas.width,
+          canvas.height
+        );
+        const blob = await canvasJpegBlob(canvas);
+        const file = new File([blob], baseName + '-自动裁片' + (index + 1) + '.jpg', { type: 'image/jpeg' });
+        crops.push({
+          file,
+          url: URL.createObjectURL(file),
+          index,
+          manualPageType: '',
+          detectedPageType: '',
+          recognizedDate: '',
+          planCode: '',
+          result: null,
+          compositeCrop: true
+        });
+      }
+      return crops;
+    } finally {
+      URL.revokeObjectURL(loaded.url);
+    }
+  }
+
+  async function expandCompositePhotoIfNeeded() {
+    if (photos.length !== 1 || photos[0].manualPageType) return false;
+    const original = photos[0];
+    const crops = await splitCompositePhoto(original);
+    if (crops.length !== COMPOSITE_PAGE_COUNT) return false;
+    if (original.url) URL.revokeObjectURL(original.url);
+    photos = crops;
+    renderPhotoCards();
+    return true;
   }
 
   async function workerRequest(path, body) {
@@ -1737,12 +1829,15 @@
 
   async function recognizePhotos() {
     if (!isSupportedPhotoCount(photos.length)) return setRecognitionStatus('请选择1至3张照片。', 'error');
-    const partialUpdate = photos.length < PAGE_TYPES.length;
     $('vehicleRecognizeButton').disabled = true;
     $('vehicleRecognitionProgress').classList.add('active');
     setRecognitionStatus('正在准备' + photos.length + '张照片……');
     try {
-      setRecognitionStatus('正在一次识别' + photos.length + '张照片的日期、范围和车号，请稍候……');
+      const compositeExpanded = await expandCompositePhotoIfNeeded();
+      const partialUpdate = photos.length < PAGE_TYPES.length;
+      setRecognitionStatus(compositeExpanded
+        ? '已将横向合拍照片拆分为3张高清裁片，正在识别日期、范围和车号……'
+        : '正在一次识别' + photos.length + '张照片的日期、范围和车号，请稍候……');
       const response = await recognizePhotoBatch();
       showVehicleQuota(response.usage);
       const responsePages = Array.isArray(response.pages) ? response.pages : [];

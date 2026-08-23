@@ -1,4 +1,4 @@
-const CACHE_NAME = "metro-tools-v2.8.25-vehicle-lab-v0.1.21";
+const CACHE_NAME = "metro-tools-v2.8.26-vehicle-lab-v0.1.22";
 const APP_ASSETS = [
   "./",
   "./index.html",
