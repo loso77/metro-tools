@@ -577,6 +577,10 @@ async function exportXlsx(){
       trainCell.numFmt='@';
       worksheet.getCell(`B${row}`).value=String(r.time??'').trim();
       worksheet.getCell(`C${row}`).value=track;
+      const fillColor=scope==='all'&&areaOf(r)==='east'?'FFDCEEFF':'FFFFFFFF';
+      for(let col=1;col<=3;col++){
+        worksheet.getCell(row,col).fill={type:'pattern',pattern:'solid',fgColor:{argb:fillColor}};
+      }
     });
     const firstUnusedRow=exportRows.length+2;
     if(scope==='east'&&worksheet.rowCount>=firstUnusedRow){
