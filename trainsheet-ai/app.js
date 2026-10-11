@@ -579,7 +579,9 @@ async function exportXlsx(){
       worksheet.getCell(`C${row}`).value=track;
       const fillColor=scope==='all'&&areaOf(r)==='east'?'FFDCEEFF':'FFFFFFFF';
       for(let col=1;col<=3;col++){
-        worksheet.getCell(row,col).fill={type:'pattern',pattern:'solid',fgColor:{argb:fillColor}};
+        const cell=worksheet.getCell(row,col);
+        cell.style=JSON.parse(JSON.stringify(cell.style||{}));
+        cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:fillColor}};
       }
     });
     const firstUnusedRow=exportRows.length+2;
